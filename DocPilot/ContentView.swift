@@ -48,7 +48,12 @@ struct ContentView: View {
                     Button("Copy clipboard") {
                         handleClipboard()
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
+                    .font(.title3.weight(.semibold))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 8)
 
                     TextEditor(text: $recognizedText)
                         .frame(minHeight: 380)
@@ -117,8 +122,21 @@ struct ContentView: View {
     private func handleClipboard() {
         errorMessage = nil
 
-        if let image = UIPasteboard.general.image {
-            recognizeText(from: [image])
+        if UIPasteboard.general.hasImages {
+            isProcessing = true
+            loadImageFromPasteboard { image in
+                DispatchQueue.main.async {
+                    self.isProcessing = false
+                    if let image {
+                        self.recognizeText(from: [image])
+                    } else if let text = UIPasteboard.general.string, !text.isEmpty {
+                        self.recognizedText = text
+                        self.store.addEntry(text: text, imageFilenames: [])
+                    } else {
+                        self.errorMessage = "No hay texto ni imagen en el portapapeles."
+                    }
+                }
+            }
             return
         }
 
@@ -129,6 +147,36 @@ struct ContentView: View {
         }
 
         errorMessage = "No hay texto ni imagen en el portapapeles."
+    }
+
+    private func loadImageFromPasteboard(completion: @escaping (UIImage?) -> Void) {
+        let providers = UIPasteboard.general.itemProviders
+        guard !providers.isEmpty else {
+            completion(UIPasteboard.general.image)
+            return
+        }
+
+        func load(from index: Int) {
+            if index >= providers.count {
+                completion(UIPasteboard.general.image)
+                return
+            }
+
+            let provider = providers[index]
+            if provider.canLoadObject(ofClass: UIImage.self) {
+                provider.loadObject(ofClass: UIImage.self) { object, _ in
+                    if let image = object as? UIImage {
+                        completion(image)
+                    } else {
+                        load(from: index + 1)
+                    }
+                }
+            } else {
+                load(from: index + 1)
+            }
+        }
+
+        load(from: 0)
     }
 
 #endif
