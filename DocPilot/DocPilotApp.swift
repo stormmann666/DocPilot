@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct DocPilotApp: App {
+    @StateObject private var store = DocumentStore()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environmentObject(store)
         }
     }
 }

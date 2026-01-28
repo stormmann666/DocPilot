@@ -15,8 +15,10 @@ import VisionKit
 #endif
 
 struct ContentView: View {
+    @EnvironmentObject private var store: DocumentStore
     @State private var recognizedText = ""
     @State private var isShowingScanner = false
+    @State private var isShowingCamera = false
     @State private var isProcessing = false
     @State private var errorMessage: String?
 
@@ -32,6 +34,13 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
 #else
             Text("Escaner no disponible en esta plataforma.")
+#endif
+
+#if canImport(UIKit)
+            Button("Capturar foto y OCR") {
+                isShowingCamera = true
+            }
+            .buttonStyle(.bordered)
 #endif
 
             if isProcessing {
@@ -60,8 +69,21 @@ struct ContentView: View {
             }
         }
 #endif
+#if canImport(UIKit)
+        .sheet(isPresented: $isShowingCamera) {
+            CameraPicker { result in
+                switch result {
+                case .success(let image):
+                    recognizeText(from: [image])
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+#endif
     }
 
+#if canImport(UIKit)
     private func recognizeText(from images: [UIImage]) {
         isProcessing = true
         errorMessage = nil
@@ -91,18 +113,64 @@ struct ContentView: View {
             }
 
             let combinedText = fullText.joined(separator: "\n\n")
+            let filenames = store.saveImages(images, prefix: "scan")
 
             DispatchQueue.main.async {
                 recognizedText = combinedText
                 isProcessing = false
+                store.addEntry(text: combinedText, imageFilenames: filenames)
             }
         }
     }
+
+#endif
 }
 
 #Preview {
     ContentView()
+        .environmentObject(DocumentStore())
 }
+
+#if canImport(UIKit)
+struct CameraPicker: UIViewControllerRepresentable {
+    var completion: (Result<UIImage, Error>) -> Void
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let controller = UIImagePickerController()
+        controller.sourceType = .camera
+        controller.delegate = context.coordinator
+        controller.allowsEditing = false
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(completion: completion)
+    }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        private let completion: (Result<UIImage, Error>) -> Void
+
+        init(completion: @escaping (Result<UIImage, Error>) -> Void) {
+            self.completion = completion
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            picker.dismiss(animated: true)
+            if let image = info[.originalImage] as? UIImage {
+                completion(.success(image))
+            } else {
+                completion(.failure(NSError(domain: "CameraPicker", code: 1, userInfo: [NSLocalizedDescriptionKey: "No se pudo obtener la imagen."])))
+            }
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            picker.dismiss(animated: true)
+        }
+    }
+}
+#endif
 
 #if canImport(VisionKit)
 struct DocumentScannerView: UIViewControllerRepresentable {
