@@ -9,6 +9,7 @@ import Foundation
 import Vision
 #if canImport(UIKit)
 import UIKit
+import UniformTypeIdentifiers
 #endif
 
 struct DocumentProcessingResult {
@@ -63,25 +64,15 @@ final class DocumentProcessor {
     }
 
     func processClipboard(store: DocumentStore, completion: @escaping (Result<DocumentProcessingResult, Error>) -> Void) {
-        if UIPasteboard.general.hasImages {
-            loadImageFromPasteboard { image in
-                if let image {
-                    self.processImages([image], store: store, completion: completion)
-                } else if let text = UIPasteboard.general.string, !text.isEmpty {
-                    completion(.success(DocumentProcessingResult(text: text, imageFilenames: [])))
-                } else {
-                    completion(.failure(DocumentProcessingError.noClipboardContent))
-                }
+        loadImageFromPasteboard { image in
+            if let image {
+                self.processImages([image], store: store, completion: completion)
+            } else if let text = UIPasteboard.general.string, !text.isEmpty {
+                completion(.success(DocumentProcessingResult(text: text, imageFilenames: [])))
+            } else {
+                completion(.failure(DocumentProcessingError.noClipboardContent))
             }
-            return
         }
-
-        if let text = UIPasteboard.general.string, !text.isEmpty {
-            completion(.success(DocumentProcessingResult(text: text, imageFilenames: [])))
-            return
-        }
-
-        completion(.failure(DocumentProcessingError.noClipboardContent))
     }
 
     private func loadImageFromPasteboard(completion: @escaping (UIImage?) -> Void) {
@@ -106,9 +97,27 @@ final class DocumentProcessor {
                         load(from: index + 1)
                     }
                 }
-            } else {
-                load(from: index + 1)
+                return
             }
+
+            if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                    if let data, let image = UIImage(data: data) {
+                        completion(image)
+                    } else {
+                        provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
+                            if let url, let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+                                completion(image)
+                            } else {
+                                load(from: index + 1)
+                            }
+                        }
+                    }
+                }
+                return
+            }
+
+            load(from: index + 1)
         }
 
         load(from: 0)
