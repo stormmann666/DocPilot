@@ -18,12 +18,10 @@ final class ContentViewModel: ObservableObject {
     @Published var isProcessing = false
     @Published var errorMessage: String?
 
-    private let store: DocumentStore
-    private let processor: DocumentProcessor
+    private let useCase: DocumentUseCase
 
-    init(store: DocumentStore, processor: DocumentProcessor = DocumentProcessor()) {
-        self.store = store
-        self.processor = processor
+    init(store: DocumentStore) {
+        self.useCase = DocumentUseCase(store: store)
     }
 
 #if canImport(UIKit)
@@ -33,7 +31,7 @@ final class ContentViewModel: ObservableObject {
         recognizedText = ""
         recognizedTitle = nil
 
-        processor.processImages([image], store: store) { [weak self] result in
+        useCase.handleCameraImage(image) { [weak self] result in
             DispatchQueue.main.async {
                 self?.handle(result: result)
             }
@@ -45,7 +43,7 @@ final class ContentViewModel: ObservableObject {
         errorMessage = nil
         recognizedTitle = nil
 
-        processor.processClipboard(store: store) { [weak self] result in
+        useCase.handleClipboard { [weak self] result in
             DispatchQueue.main.async {
                 self?.handle(result: result)
             }
@@ -53,18 +51,12 @@ final class ContentViewModel: ObservableObject {
     }
 #endif
 
-    private func handle(result: Result<DocumentProcessingResult, Error>) {
+    private func handle(result: Result<DocumentUseCaseResult, Error>) {
         isProcessing = false
         switch result {
         case .success(let result):
             recognizedText = result.text
             recognizedTitle = result.title
-            store.addEntry(
-                title: result.title,
-                text: result.text,
-                imageFilenames: result.imageFilenames,
-                fileFilename: result.fileFilename
-            )
         case .failure(let error):
             errorMessage = error.localizedDescription
         }
