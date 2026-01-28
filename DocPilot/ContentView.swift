@@ -46,6 +46,7 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Button("Copy clipboard") {
+                        handleClipboard()
                     }
                     .buttonStyle(.bordered)
 
@@ -111,6 +112,23 @@ struct ContentView: View {
                 store.addEntry(text: combinedText, imageFilenames: filenames)
             }
         }
+    }
+
+    private func handleClipboard() {
+        errorMessage = nil
+
+        if let image = UIPasteboard.general.image {
+            recognizeText(from: [image])
+            return
+        }
+
+        if let text = UIPasteboard.general.string, !text.isEmpty {
+            recognizedText = text
+            store.addEntry(text: text, imageFilenames: [])
+            return
+        }
+
+        errorMessage = "No hay texto ni imagen en el portapapeles."
     }
 
 #endif
