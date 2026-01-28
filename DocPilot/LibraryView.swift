@@ -104,6 +104,7 @@ struct LibraryView: View {
 
 struct DocumentDetailView: View {
     let entry: DocumentEntry
+    @State private var selectedImageItem: ImageItem?
 
     var body: some View {
         ScrollView {
@@ -119,6 +120,11 @@ struct DocumentDetailView: View {
                 }
 
                 if let text = entry.text, !text.isEmpty {
+                    Button("Copiar texto") {
+                        copyText(text)
+                    }
+                    .buttonStyle(.borderedProminent)
+
                     Text(text)
                         .textSelection(.enabled)
                         .font(.body)
@@ -128,6 +134,9 @@ struct DocumentDetailView: View {
         }
         .navigationTitle(formatter.string(from: entry.createdAt))
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $selectedImageItem) { item in
+            ImagePreview(image: item.image)
+        }
     }
 
     private func fileURL(for filename: String) -> URL? {
@@ -137,25 +146,37 @@ struct DocumentDetailView: View {
     @ViewBuilder
     private func detailImageView(for filename: String) -> some View {
         if let url = fileURL(for: filename) {
-#if canImport(UIKit)
-            if let image = UIImage(contentsOfFile: url.path) {
-                Image(uiImage: image)
+            if let image = loadImage(from: url) {
+                platformImageView(image)
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: 280, maxHeight: 380)
                     .cornerRadius(10)
+                    .onTapGesture {
+                        selectedImageItem = ImageItem(image: image)
+                    }
+                    .contextMenu {
+                        Button("Copiar imagen") {
+                            copyImage(image)
+                        }
+                    }
             }
-#elseif canImport(AppKit)
-            if let image = NSImage(contentsOf: url) {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 280, maxHeight: 380)
-                    .cornerRadius(10)
-            }
-#endif
         }
     }
+
+    private func copyText(_ text: String) {
+#if canImport(UIKit)
+        UIPasteboard.general.string = text
+#elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+#endif
+    }
+}
+
+struct ImageItem: Identifiable {
+    let id = UUID()
+    let image: PlatformImage
 }
 
 private let formatter: DateFormatter = {
@@ -164,3 +185,63 @@ private let formatter: DateFormatter = {
     formatter.timeStyle = .short
     return formatter
 }()
+
+#if canImport(UIKit)
+typealias PlatformImage = UIImage
+#elseif canImport(AppKit)
+typealias PlatformImage = NSImage
+#endif
+
+private func platformImageView(_ image: PlatformImage) -> Image {
+#if canImport(UIKit)
+    return Image(uiImage: image)
+#elseif canImport(AppKit)
+    return Image(nsImage: image)
+#endif
+}
+
+private func loadImage(from url: URL) -> PlatformImage? {
+#if canImport(UIKit)
+    UIImage(contentsOfFile: url.path)
+#elseif canImport(AppKit)
+    NSImage(contentsOf: url)
+#endif
+}
+
+private func copyImage(_ image: PlatformImage) {
+#if canImport(UIKit)
+    UIPasteboard.general.image = image
+#elseif canImport(AppKit)
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.writeObjects([image])
+#endif
+}
+
+struct ImagePreview: View {
+    let image: PlatformImage
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.opacity(0.95).ignoresSafeArea()
+                platformImageView(image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding()
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Copiar imagen") {
+                        copyImage(image)
+                    }
+                }
+            }
+        }
+    }
+}
