@@ -8,9 +8,11 @@
 import SwiftUI
 
 struct RootView: View {
+    @EnvironmentObject private var store: DocumentStore
+
     var body: some View {
         TabView {
-            ContentView()
+            ContentView(store: store)
                 .tabItem {
                     Label("Capturar", systemImage: "camera")
                 }

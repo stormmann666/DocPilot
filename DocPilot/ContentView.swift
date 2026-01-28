@@ -6,17 +6,17 @@
 //
 
 import SwiftUI
-import Vision
 #if canImport(UIKit)
 import UIKit
 #endif
 
 struct ContentView: View {
-    @EnvironmentObject private var store: DocumentStore
-    @State private var recognizedText = ""
+    @StateObject private var viewModel: ContentViewModel
     @State private var isShowingCamera = false
-    @State private var isProcessing = false
-    @State private var errorMessage: String?
+
+    init(store: DocumentStore) {
+        _viewModel = StateObject(wrappedValue: ContentViewModel(store: store))
+    }
 
     var body: some View {
         ScrollView {
@@ -35,18 +35,18 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 #endif
 
-                if isProcessing {
+                if viewModel.isProcessing {
                     ProgressView("Reconociendo texto...")
                 }
 
-                if let errorMessage {
+                if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
                     Button("Copy clipboard") {
-                        handleClipboard()
+                        viewModel.processClipboard()
                     }
                     .buttonStyle(.borderedProminent)
                     .font(.title3.weight(.semibold))
@@ -55,7 +55,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 8)
 
-                    TextEditor(text: $recognizedText)
+                    TextEditor(text: $viewModel.recognizedText)
                         .frame(minHeight: 380)
                         .border(.gray.opacity(0.4))
                 }
@@ -70,121 +70,19 @@ struct ContentView: View {
             CameraPicker { result in
                 switch result {
                 case .success(let image):
-                    recognizeText(from: [image])
-                case .failure(let error):
-                    errorMessage = error.localizedDescription
+                    viewModel.processCameraImage(image)
+                case .failure:
+                    viewModel.errorMessage = "No se pudo obtener la imagen."
                 }
             }
         }
 #endif
     }
 
-#if canImport(UIKit)
-    private func recognizeText(from images: [UIImage]) {
-        isProcessing = true
-        errorMessage = nil
-        recognizedText = ""
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            var fullText: [String] = []
-
-            for image in images {
-                guard let cgImage = image.cgImage else { continue }
-                let request = VNRecognizeTextRequest()
-                request.recognitionLevel = .accurate
-                request.usesLanguageCorrection = true
-                request.recognitionLanguages = ["es-ES", "en-US"]
-
-                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-                do {
-                    try handler.perform([request])
-                    let observations = request.results ?? []
-                    let lines = observations.compactMap { $0.topCandidates(1).first?.string }
-                    if !lines.isEmpty {
-                        fullText.append(lines.joined(separator: "\n"))
-                    }
-                } catch {
-                    fullText.append("[Error OCR: \(error.localizedDescription)]")
-                }
-            }
-
-            let combinedText = fullText.joined(separator: "\n\n")
-            let filenames = store.saveImages(images, prefix: "scan")
-
-            DispatchQueue.main.async {
-                recognizedText = combinedText
-                isProcessing = false
-                store.addEntry(text: combinedText, imageFilenames: filenames)
-            }
-        }
-    }
-
-    private func handleClipboard() {
-        errorMessage = nil
-
-        if UIPasteboard.general.hasImages {
-            isProcessing = true
-            loadImageFromPasteboard { image in
-                DispatchQueue.main.async {
-                    self.isProcessing = false
-                    if let image {
-                        self.recognizeText(from: [image])
-                    } else if let text = UIPasteboard.general.string, !text.isEmpty {
-                        self.recognizedText = text
-                        self.store.addEntry(text: text, imageFilenames: [])
-                    } else {
-                        self.errorMessage = "No hay texto ni imagen en el portapapeles."
-                    }
-                }
-            }
-            return
-        }
-
-        if let text = UIPasteboard.general.string, !text.isEmpty {
-            recognizedText = text
-            store.addEntry(text: text, imageFilenames: [])
-            return
-        }
-
-        errorMessage = "No hay texto ni imagen en el portapapeles."
-    }
-
-    private func loadImageFromPasteboard(completion: @escaping (UIImage?) -> Void) {
-        let providers = UIPasteboard.general.itemProviders
-        guard !providers.isEmpty else {
-            completion(UIPasteboard.general.image)
-            return
-        }
-
-        func load(from index: Int) {
-            if index >= providers.count {
-                completion(UIPasteboard.general.image)
-                return
-            }
-
-            let provider = providers[index]
-            if provider.canLoadObject(ofClass: UIImage.self) {
-                provider.loadObject(ofClass: UIImage.self) { object, _ in
-                    if let image = object as? UIImage {
-                        completion(image)
-                    } else {
-                        load(from: index + 1)
-                    }
-                }
-            } else {
-                load(from: index + 1)
-            }
-        }
-
-        load(from: 0)
-    }
-
-#endif
 }
 
 #Preview {
-    ContentView()
-        .environmentObject(DocumentStore())
+    ContentView(store: DocumentStore())
 }
 
 #if canImport(UIKit)
