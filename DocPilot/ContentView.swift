@@ -55,6 +55,12 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 8)
 
+                    if let title = viewModel.recognizedTitle {
+                        Text(title)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
                     TextEditor(text: $viewModel.recognizedText)
                         .frame(minHeight: 380)
                         .border(.gray.opacity(0.4))

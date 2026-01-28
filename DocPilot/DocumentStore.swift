@@ -14,6 +14,7 @@ import UIKit
 struct DocumentEntry: Identifiable, Codable {
     let id: UUID
     let createdAt: Date
+    let title: String?
     let text: String?
     let imageFilenames: [String]
 }
@@ -37,8 +38,8 @@ final class DocumentStore: ObservableObject {
         load()
     }
 
-    func addEntry(text: String?, imageFilenames: [String]) {
-        let entry = DocumentEntry(id: UUID(), createdAt: Date(), text: text, imageFilenames: imageFilenames)
+    func addEntry(title: String? = nil, text: String?, imageFilenames: [String]) {
+        let entry = DocumentEntry(id: UUID(), createdAt: Date(), title: title, text: text, imageFilenames: imageFilenames)
         entries.insert(entry, at: 0)
         save()
     }

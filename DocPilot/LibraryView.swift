@@ -29,7 +29,7 @@ struct LibraryView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text(formatter.string(from: entry.createdAt))
+                                Text(entry.title ?? formatter.string(from: entry.createdAt))
                                     .font(.subheadline)
                                 Spacer()
                                 Text(entryLabel(for: entry))
@@ -51,6 +51,12 @@ struct LibraryView: View {
                                 Text(text)
                                     .font(.caption)
                                     .lineLimit(3)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            if entry.title != nil {
+                                Text(formatter.string(from: entry.createdAt))
+                                    .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -139,7 +145,7 @@ struct DocumentDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(formatter.string(from: entry.createdAt))
+        .navigationTitle(entry.title ?? formatter.string(from: entry.createdAt))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             Button(role: .destructive) {

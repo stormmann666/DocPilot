@@ -14,6 +14,7 @@ import UIKit
 @MainActor
 final class ContentViewModel: ObservableObject {
     @Published var recognizedText = ""
+    @Published var recognizedTitle: String?
     @Published var isProcessing = false
     @Published var errorMessage: String?
 
@@ -30,6 +31,7 @@ final class ContentViewModel: ObservableObject {
         isProcessing = true
         errorMessage = nil
         recognizedText = ""
+        recognizedTitle = nil
 
         processor.processImages([image], store: store) { [weak self] result in
             DispatchQueue.main.async {
@@ -41,6 +43,7 @@ final class ContentViewModel: ObservableObject {
     func processClipboard() {
         isProcessing = true
         errorMessage = nil
+        recognizedTitle = nil
 
         processor.processClipboard(store: store) { [weak self] result in
             DispatchQueue.main.async {
@@ -55,7 +58,8 @@ final class ContentViewModel: ObservableObject {
         switch result {
         case .success(let result):
             recognizedText = result.text
-            store.addEntry(text: result.text, imageFilenames: result.imageFilenames)
+            recognizedTitle = result.title
+            store.addEntry(title: result.title, text: result.text, imageFilenames: result.imageFilenames)
         case .failure(let error):
             errorMessage = error.localizedDescription
         }
