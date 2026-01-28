@@ -19,29 +19,44 @@ struct ContentView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("OCR de documentos")
-                .font(.title2)
+        ScrollView {
+            VStack(spacing: 24) {
+                Text("OCR de documentos")
+                    .font(.title2)
 
 #if canImport(UIKit)
-            Button("Capturar foto y OCR") {
-                isShowingCamera = true
-            }
-            .buttonStyle(.bordered)
+                Button("Capturar foto y OCR") {
+                    isShowingCamera = true
+                }
+                .buttonStyle(.borderedProminent)
+                .font(.title3.weight(.semibold))
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .center)
 #endif
 
-            if isProcessing {
-                ProgressView("Reconociendo texto...")
-            }
+                if isProcessing {
+                    ProgressView("Reconociendo texto...")
+                }
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
+                if let errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                }
 
-            TextEditor(text: $recognizedText)
-                .frame(minHeight: 300)
-                .border(.gray.opacity(0.4))
+                VStack(alignment: .leading, spacing: 12) {
+                    Button("Copy clipboard") {
+                    }
+                    .buttonStyle(.bordered)
+
+                    TextEditor(text: $recognizedText)
+                        .frame(minHeight: 380)
+                        .border(.gray.opacity(0.4))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 16)
         }
         .padding()
 #if canImport(UIKit)
