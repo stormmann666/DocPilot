@@ -43,6 +43,21 @@ final class DocumentStore: ObservableObject {
         save()
     }
 
+    func deleteEntry(_ entry: DocumentEntry) {
+        for filename in entry.imageFilenames {
+            deleteImage(named: filename)
+        }
+        entries.removeAll { $0.id == entry.id }
+        save()
+    }
+
+    func deleteEntries(at offsets: IndexSet) {
+        let entriesToDelete = offsets.map { entries[$0] }
+        for entry in entriesToDelete {
+            deleteEntry(entry)
+        }
+    }
+
     func load() {
         do {
             let data = try Data(contentsOf: fileURL)
@@ -87,4 +102,13 @@ final class DocumentStore: ObservableObject {
         return filenames
     }
 #endif
+
+    private func deleteImage(named filename: String) {
+        let fileManager = FileManager.default
+        guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        let url = documentsURL.appendingPathComponent(filename)
+        try? fileManager.removeItem(at: url)
+    }
 }

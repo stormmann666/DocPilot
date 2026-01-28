@@ -57,8 +57,12 @@ struct LibraryView: View {
                         .padding(.vertical, 4)
                     }
                 }
+                .onDelete(perform: store.deleteEntries)
             }
             .navigationTitle("Documentos")
+            .toolbar {
+                EditButton()
+            }
         }
     }
 
@@ -104,7 +108,10 @@ struct LibraryView: View {
 
 struct DocumentDetailView: View {
     let entry: DocumentEntry
+    @EnvironmentObject private var store: DocumentStore
     @State private var selectedImageItem: ImageItem?
+    @State private var isShowingDeleteAlert = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
@@ -134,6 +141,22 @@ struct DocumentDetailView: View {
         }
         .navigationTitle(formatter.string(from: entry.createdAt))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            Button(role: .destructive) {
+                isShowingDeleteAlert = true
+            } label: {
+                Image(systemName: "trash")
+            }
+        }
+        .alert("Borrar documento", isPresented: $isShowingDeleteAlert) {
+            Button("Borrar", role: .destructive) {
+                store.deleteEntry(entry)
+                dismiss()
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se borrara la imagen y el texto OCR.")
+        }
         .sheet(item: $selectedImageItem) { item in
             ImagePreview(image: item.image)
         }
