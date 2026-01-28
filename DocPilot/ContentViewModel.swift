@@ -59,7 +59,12 @@ final class ContentViewModel: ObservableObject {
         case .success(let result):
             recognizedText = result.text
             recognizedTitle = result.title
-            store.addEntry(title: result.title, text: result.text, imageFilenames: result.imageFilenames)
+            store.addEntry(
+                title: result.title,
+                text: result.text,
+                imageFilenames: result.imageFilenames,
+                fileFilename: result.fileFilename
+            )
         case .failure(let error):
             errorMessage = error.localizedDescription
         }

@@ -73,6 +73,9 @@ struct LibraryView: View {
     }
 
     private func entryLabel(for entry: DocumentEntry) -> String {
+        if entry.fileFilename != nil {
+            return "PDF"
+        }
         if entry.text != nil && !entry.imageFilenames.isEmpty {
             return "OCR + Fotos"
         }
@@ -141,6 +144,12 @@ struct DocumentDetailView: View {
                     Text(text)
                         .textSelection(.enabled)
                         .font(.body)
+                }
+
+                if let file = entry.fileFilename, !file.isEmpty {
+                    Text("PDF guardado: \(file)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding()

@@ -17,6 +17,7 @@ struct DocumentEntry: Identifiable, Codable {
     let title: String?
     let text: String?
     let imageFilenames: [String]
+    let fileFilename: String?
 }
 
 final class DocumentStore: ObservableObject {
@@ -38,8 +39,15 @@ final class DocumentStore: ObservableObject {
         load()
     }
 
-    func addEntry(title: String? = nil, text: String?, imageFilenames: [String]) {
-        let entry = DocumentEntry(id: UUID(), createdAt: Date(), title: title, text: text, imageFilenames: imageFilenames)
+    func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil) {
+        let entry = DocumentEntry(
+            id: UUID(),
+            createdAt: Date(),
+            title: title,
+            text: text,
+            imageFilenames: imageFilenames,
+            fileFilename: fileFilename
+        )
         entries.insert(entry, at: 0)
         save()
     }
@@ -47,6 +55,9 @@ final class DocumentStore: ObservableObject {
     func deleteEntry(_ entry: DocumentEntry) {
         for filename in entry.imageFilenames {
             deleteImage(named: filename)
+        }
+        if let fileFilename = entry.fileFilename {
+            deleteFile(named: fileFilename)
         }
         entries.removeAll { $0.id == entry.id }
         save()
@@ -104,7 +115,37 @@ final class DocumentStore: ObservableObject {
     }
 #endif
 
+    func saveFile(from url: URL, prefix: String) -> String? {
+        let fileManager = FileManager.default
+        guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let filename = "\(prefix)_\(timestamp)_\(url.lastPathComponent)"
+        let destination = documentsURL.appendingPathComponent(filename)
+
+        do {
+            if fileManager.fileExists(atPath: destination.path) {
+                try fileManager.removeItem(at: destination)
+            }
+            try fileManager.copyItem(at: url, to: destination)
+            return filename
+        } catch {
+            return nil
+        }
+    }
+
     private func deleteImage(named filename: String) {
+        let fileManager = FileManager.default
+        guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        let url = documentsURL.appendingPathComponent(filename)
+        try? fileManager.removeItem(at: url)
+    }
+
+    private func deleteFile(named filename: String) {
         let fileManager = FileManager.default
         guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return

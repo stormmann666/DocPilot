@@ -16,6 +16,7 @@ struct DocumentProcessingResult {
     let title: String?
     let text: String
     let imageFilenames: [String]
+    let fileFilename: String?
 }
 
 enum DocumentProcessingError: LocalizedError {
@@ -60,25 +61,33 @@ final class DocumentProcessor {
 
             let combinedText = fullText.joined(separator: "\n\n")
             let filenames = store.saveImages(images, prefix: "scan")
-            completion(.success(DocumentProcessingResult(title: nil, text: combinedText, imageFilenames: filenames)))
+            completion(.success(DocumentProcessingResult(title: nil, text: combinedText, imageFilenames: filenames, fileFilename: nil)))
         }
     }
 
     func processClipboard(store: DocumentStore, completion: @escaping (Result<DocumentProcessingResult, Error>) -> Void) {
         loadTextFromPasteboard { text, title in
             if let text, !text.isEmpty {
-                completion(.success(DocumentProcessingResult(title: title, text: text, imageFilenames: [])))
+                completion(.success(DocumentProcessingResult(title: title, text: text, imageFilenames: [], fileFilename: nil)))
                 return
             }
 
-            self.loadImageFromPasteboard { image in
-            if let image {
-                self.processImages([image], store: store, completion: completion)
-            } else if let text = UIPasteboard.general.string, !text.isEmpty {
-                completion(.success(DocumentProcessingResult(title: nil, text: text, imageFilenames: [])))
-            } else {
-                completion(.failure(DocumentProcessingError.noClipboardContent))
-            }
+            self.loadPDFFileFromPasteboard { pdfURL in
+                if let pdfURL, let saved = store.saveFile(from: pdfURL, prefix: "pdf") {
+                    let title = pdfURL.lastPathComponent
+                    completion(.success(DocumentProcessingResult(title: title, text: "", imageFilenames: [], fileFilename: saved)))
+                    return
+                }
+
+                self.loadImageFromPasteboard { image in
+                    if let image {
+                        self.processImages([image], store: store, completion: completion)
+                    } else if let text = UIPasteboard.general.string, !text.isEmpty {
+                        completion(.success(DocumentProcessingResult(title: nil, text: text, imageFilenames: [], fileFilename: nil)))
+                    } else {
+                        completion(.failure(DocumentProcessingError.noClipboardContent))
+                    }
+                }
             }
         }
     }
@@ -211,6 +220,64 @@ final class DocumentProcessor {
                                 load(from: index + 1)
                             }
                         }
+                    }
+                }
+                return
+            }
+
+            load(from: index + 1)
+        }
+
+        load(from: 0)
+    }
+
+    private func loadPDFFileFromPasteboard(completion: @escaping (URL?) -> Void) {
+        let providers = UIPasteboard.general.itemProviders
+        guard !providers.isEmpty else {
+            completion(nil)
+            return
+        }
+
+        func load(from index: Int) {
+            if index >= providers.count {
+                completion(nil)
+                return
+            }
+
+            let provider = providers[index]
+            if provider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
+                provider.loadFileRepresentation(forTypeIdentifier: UTType.pdf.identifier) { url, _ in
+                    if let url {
+                        completion(url)
+                    } else {
+                        provider.loadDataRepresentation(forTypeIdentifier: UTType.pdf.identifier) { data, _ in
+                            if let data {
+                                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+                                if (try? data.write(to: tempURL, options: [.atomic])) != nil {
+                                    completion(tempURL)
+                                } else {
+                                    load(from: index + 1)
+                                }
+                            } else {
+                                load(from: index + 1)
+                            }
+                        }
+                    }
+                }
+                return
+            }
+
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    if let data = item as? Data,
+                       let urlString = String(data: data, encoding: .utf8),
+                       let url = URL(string: urlString),
+                       url.pathExtension.lowercased() == "pdf" {
+                        completion(url)
+                    } else if let url = item as? URL, url.pathExtension.lowercased() == "pdf" {
+                        completion(url)
+                    } else {
+                        load(from: index + 1)
                     }
                 }
                 return
