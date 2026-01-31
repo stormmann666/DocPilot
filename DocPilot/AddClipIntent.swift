@@ -15,7 +15,7 @@ struct AddClipIntent: AppIntent {
     static let openAppWhenRun = false
 
     @MainActor
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         let store = DocumentStore()
         let useCase = DocumentUseCase(store: store)
         let result = await withCheckedContinuation { continuation in
