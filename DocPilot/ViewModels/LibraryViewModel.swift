@@ -44,7 +44,7 @@ final class LibraryViewModel: ObservableObject {
         case .all:
             return entries
         case .photos:
-            return entries.filter { !$0.imageFilenames.isEmpty }
+            return entries.filter { !$0.imageFilenames.isEmpty && $0.linkURL == nil }
         case .links:
             return entries.filter { $0.linkURL != nil }
         case .text:
