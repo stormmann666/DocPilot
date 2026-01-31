@@ -20,6 +20,8 @@ final class LibraryViewModel: ObservableObject {
         case photos = "Photos"
         case links = "Links"
         case text = "Text"
+        case today = "Hoy"
+        case week = "Semana"
 
         var id: String { rawValue }
     }
@@ -40,6 +42,7 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func filteredEntries(_ entries: [DocumentEntry], filter: Filter) -> [DocumentEntry] {
+        let calendar = Calendar.current
         switch filter {
         case .all:
             return entries
@@ -49,6 +52,14 @@ final class LibraryViewModel: ObservableObject {
             return entries.filter { $0.linkURL != nil }
         case .text:
             return entries.filter { ($0.text?.isEmpty == false) && $0.imageFilenames.isEmpty && $0.fileFilename == nil && $0.linkURL == nil }
+        case .today:
+            return entries.filter { calendar.isDateInToday($0.createdAt) }
+        case .week:
+            let now = Date()
+            return entries.filter { entry in
+                calendar.dateComponents([.weekOfYear, .yearForWeekOfYear], from: entry.createdAt) ==
+                    calendar.dateComponents([.weekOfYear, .yearForWeekOfYear], from: now)
+            }
         }
     }
 
