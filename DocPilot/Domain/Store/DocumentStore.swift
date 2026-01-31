@@ -21,6 +21,24 @@ struct DocumentEntry: Identifiable, Codable {
     let linkURL: String?
 }
 
+extension DocumentEntry {
+    var displayLabel: String {
+        if linkURL != nil {
+            return "Link"
+        }
+        if fileFilename != nil {
+            return "PDF"
+        }
+        if let text, !text.isEmpty, !imageFilenames.isEmpty {
+            return "OCR + Fotos"
+        }
+        if let text, !text.isEmpty {
+            return "OCR"
+        }
+        return "Fotos"
+    }
+}
+
 final class DocumentStore: ObservableObject {
     @Published private(set) var entries: [DocumentEntry] = []
 
