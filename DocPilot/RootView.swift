@@ -17,7 +17,7 @@ struct RootView: View {
                     Label("Capturar", systemImage: "camera")
                 }
 
-            LibraryView()
+            LibraryView(store: store)
                 .tabItem {
                     Label("Documentos", systemImage: "doc.text")
                 }

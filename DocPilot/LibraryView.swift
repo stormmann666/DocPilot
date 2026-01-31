@@ -9,57 +9,16 @@ import SwiftUI
 
 struct LibraryView: View {
     @EnvironmentObject private var store: DocumentStore
-    @StateObject private var viewModel = LibraryViewModel()
-    @State private var selectedFilter: LibraryViewModel.Filter = .all
+    @StateObject private var viewModel: LibraryViewModel
+
+    init(store: DocumentStore) {
+        _viewModel = StateObject(wrappedValue: LibraryViewModel(store: store))
+    }
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(viewModel.filteredEntries(store.entries, filter: selectedFilter)) { entry in
-                    NavigationLink {
-                        DocumentDetailView(entry: entry, viewModel: viewModel)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(entry.title ?? viewModel.formattedDate(entry.createdAt))
-                                    .font(.subheadline)
-                                Spacer()
-                                Text(viewModel.entryLabel(for: entry))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            if !entry.imageFilenames.isEmpty {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(entry.imageFilenames, id: \.self) { filename in
-                                            thumbnailView(for: filename)
-                                        }
-                                    }
-                                }
-                            }
-
-                            if let text = entry.text, !text.isEmpty {
-                                Text(text)
-                                    .font(.caption)
-                                    .lineLimit(3)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            if entry.title != nil {
-                                Text(viewModel.formattedDate(entry.createdAt))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-                .onDelete(perform: store.deleteEntries)
-            }
-            .navigationTitle("Documentos")
-            .safeAreaInset(edge: .top) {
-                Picker("Filtro", selection: $selectedFilter) {
+            VStack(spacing: 0) {
+                Picker("Filtro", selection: $viewModel.filter) {
                     ForEach(LibraryViewModel.Filter.allCases) { filter in
                         Text(filter.rawValue).tag(filter)
                     }
@@ -67,13 +26,58 @@ struct LibraryView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-            }
-            .overlay {
-                if viewModel.filteredEntries(store.entries, filter: selectedFilter).isEmpty {
-                    Text("No hay documentos guardados.")
-                        .foregroundStyle(.secondary)
+
+                List {
+                    ForEach(viewModel.entries) { entry in
+                        NavigationLink {
+                            DocumentDetailView(entry: entry, viewModel: viewModel)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(entry.title ?? viewModel.formattedDate(entry.createdAt))
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text(viewModel.entryLabel(for: entry))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                if !entry.imageFilenames.isEmpty {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(entry.imageFilenames, id: \.self) { filename in
+                                                thumbnailView(for: filename)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if let text = entry.text, !text.isEmpty {
+                                    Text(text)
+                                        .font(.caption)
+                                        .lineLimit(3)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                if entry.title != nil {
+                                    Text(viewModel.formattedDate(entry.createdAt))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .onDelete(perform: store.deleteEntries)
+                }
+                .overlay {
+                    if viewModel.isEmptyState(viewModel.entries) {
+                        Text("No hay documentos guardados.")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+            .navigationTitle("Documentos")
             .toolbar {
                 EditButton()
             }
@@ -221,4 +225,9 @@ struct ImagePreview: View {
             }
         }
     }
+}
+
+#Preview {
+    LibraryView(store: DocumentStore())
+        .environmentObject(DocumentStore())
 }

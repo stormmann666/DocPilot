@@ -15,6 +15,9 @@ import AppKit
 
 @MainActor
 final class LibraryViewModel: ObservableObject {
+    @Published var filter: Filter = .all
+    @Published private(set) var entries: [DocumentEntry] = []
+
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
         case photos = "Photos"
@@ -33,6 +36,14 @@ final class LibraryViewModel: ObservableObject {
         return formatter
     }()
 
+    private let store: DocumentStore
+    private var cancellables = Set<AnyCancellable>()
+
+    init(store: DocumentStore) {
+        self.store = store
+        bind()
+    }
+
     func entryLabel(for entry: DocumentEntry) -> String {
         entry.displayLabel
     }
@@ -41,8 +52,11 @@ final class LibraryViewModel: ObservableObject {
         dateFormatter.string(from: date)
     }
 
-    func filteredEntries(_ entries: [DocumentEntry], filter: Filter) -> [DocumentEntry] {
-        let calendar = Calendar.current
+    func isEmptyState(_ entries: [DocumentEntry]) -> Bool {
+        entries.isEmpty
+    }
+
+    private func filteredEntries(_ entries: [DocumentEntry], filter: Filter) -> [DocumentEntry] {
         switch filter {
         case .all:
             return entries
@@ -53,12 +67,16 @@ final class LibraryViewModel: ObservableObject {
         case .text:
             return entries.filter { ($0.text?.isEmpty == false) && $0.imageFilenames.isEmpty && $0.fileFilename == nil && $0.linkURL == nil }
         case .today:
-            return entries.filter { calendar.isDateInToday($0.createdAt) }
-        case .week:
-            let now = Date()
+            let interval = Calendar.current.dateInterval(of: .day, for: Date())
             return entries.filter { entry in
-                calendar.dateComponents([.weekOfYear, .yearForWeekOfYear], from: entry.createdAt) ==
-                    calendar.dateComponents([.weekOfYear, .yearForWeekOfYear], from: now)
+                guard let interval else { return false }
+                return interval.contains(entry.createdAt)
+            }
+        case .week:
+            let interval = Calendar.current.dateInterval(of: .weekOfYear, for: Date())
+            return entries.filter { entry in
+                guard let interval else { return false }
+                return interval.contains(entry.createdAt)
             }
         }
     }
@@ -98,5 +116,14 @@ final class LibraryViewModel: ObservableObject {
 #elseif canImport(AppKit)
         NSImage(contentsOf: url)
 #endif
+    }
+
+    private func bind() {
+        Publishers.CombineLatest(store.$entries, $filter)
+            .map { [weak self] entries, filter in
+                self?.filteredEntries(entries, filter: filter) ?? []
+            }
+            .receive(on: RunLoop.main)
+            .assign(to: &$entries)
     }
 }
