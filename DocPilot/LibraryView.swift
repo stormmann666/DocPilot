@@ -10,16 +10,12 @@ import SwiftUI
 struct LibraryView: View {
     @EnvironmentObject private var store: DocumentStore
     @StateObject private var viewModel = LibraryViewModel()
+    @State private var selectedFilter: LibraryViewModel.Filter = .all
 
     var body: some View {
         NavigationStack {
             List {
-                if store.entries.isEmpty {
-                    Text("No hay documentos guardados.")
-                        .foregroundStyle(.secondary)
-                }
-
-                ForEach(store.entries) { entry in
+                ForEach(viewModel.filteredEntries(store.entries, filter: selectedFilter)) { entry in
                     NavigationLink {
                         DocumentDetailView(entry: entry, viewModel: viewModel)
                     } label: {
@@ -62,6 +58,22 @@ struct LibraryView: View {
                 .onDelete(perform: store.deleteEntries)
             }
             .navigationTitle("Documentos")
+            .safeAreaInset(edge: .top) {
+                Picker("Filtro", selection: $selectedFilter) {
+                    ForEach(LibraryViewModel.Filter.allCases) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+            .overlay {
+                if viewModel.filteredEntries(store.entries, filter: selectedFilter).isEmpty {
+                    Text("No hay documentos guardados.")
+                        .foregroundStyle(.secondary)
+                }
+            }
             .toolbar {
                 EditButton()
             }

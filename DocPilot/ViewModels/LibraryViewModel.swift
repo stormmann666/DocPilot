@@ -15,6 +15,15 @@ import AppKit
 
 @MainActor
 final class LibraryViewModel: ObservableObject {
+    enum Filter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case photos = "Photos"
+        case links = "Links"
+        case text = "Text"
+
+        var id: String { rawValue }
+    }
+
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -28,6 +37,19 @@ final class LibraryViewModel: ObservableObject {
 
     func formattedDate(_ date: Date) -> String {
         dateFormatter.string(from: date)
+    }
+
+    func filteredEntries(_ entries: [DocumentEntry], filter: Filter) -> [DocumentEntry] {
+        switch filter {
+        case .all:
+            return entries
+        case .photos:
+            return entries.filter { !$0.imageFilenames.isEmpty }
+        case .links:
+            return entries.filter { $0.linkURL != nil }
+        case .text:
+            return entries.filter { ($0.text?.isEmpty == false) && $0.imageFilenames.isEmpty && $0.fileFilename == nil && $0.linkURL == nil }
+        }
     }
 
     func fileURL(for filename: String) -> URL? {
