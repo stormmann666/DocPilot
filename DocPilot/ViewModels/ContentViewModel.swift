@@ -17,6 +17,7 @@ final class ContentViewModel: ObservableObject {
     @Published var recognizedTitle: String?
     @Published var isProcessing = false
     @Published var errorMessage: String?
+    @Published var isResultPresented = false
 
     private let useCase: DocumentUseCase
 
@@ -30,6 +31,7 @@ final class ContentViewModel: ObservableObject {
         errorMessage = nil
         recognizedText = ""
         recognizedTitle = nil
+        isResultPresented = false
 
         useCase.handleCameraImage(image) { [weak self] result in
             DispatchQueue.main.async {
@@ -42,6 +44,7 @@ final class ContentViewModel: ObservableObject {
         isProcessing = true
         errorMessage = nil
         recognizedTitle = nil
+        isResultPresented = false
 
         useCase.handleClipboard { [weak self] result in
             DispatchQueue.main.async {
@@ -57,6 +60,7 @@ final class ContentViewModel: ObservableObject {
         case .success(let result):
             recognizedText = result.text
             recognizedTitle = result.title
+            isResultPresented = true
         case .failure(let error):
             errorMessage = error.localizedDescription
         }
