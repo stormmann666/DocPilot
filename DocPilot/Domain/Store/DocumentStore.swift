@@ -18,6 +18,7 @@ struct DocumentEntry: Identifiable, Codable {
     let text: String?
     let imageFilenames: [String]
     let fileFilename: String?
+    let linkURL: String?
 }
 
 final class DocumentStore: ObservableObject {
@@ -39,14 +40,15 @@ final class DocumentStore: ObservableObject {
         load()
     }
 
-    func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil) {
+    func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil, linkURL: String? = nil) {
         let entry = DocumentEntry(
             id: UUID(),
             createdAt: Date(),
             title: title,
             text: text,
             imageFilenames: imageFilenames,
-            fileFilename: fileFilename
+            fileFilename: fileFilename,
+            linkURL: linkURL
         )
         entries.insert(entry, at: 0)
         save()

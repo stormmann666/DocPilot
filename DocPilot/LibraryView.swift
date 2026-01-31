@@ -73,6 +73,9 @@ struct LibraryView: View {
     }
 
     private func entryLabel(for entry: DocumentEntry) -> String {
+        if entry.linkURL != nil {
+            return "Link"
+        }
         if entry.fileFilename != nil {
             return "PDF"
         }

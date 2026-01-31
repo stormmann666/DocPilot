@@ -17,6 +17,7 @@ struct DocumentProcessingPayload {
     let text: String?
     let images: [UIImage]
     let fileURL: URL?
+    let linkURL: URL?
 }
 
 enum DocumentProcessingError: LocalizedError {
@@ -60,21 +61,25 @@ final class DocumentProcessor {
             }
 
             let combinedText = fullText.joined(separator: "\n\n")
-            completion(.success(DocumentProcessingPayload(title: nil, text: combinedText, images: images, fileURL: nil)))
+            completion(.success(DocumentProcessingPayload(title: nil, text: combinedText, images: images, fileURL: nil, linkURL: nil)))
         }
     }
 
     func processClipboard(completion: @escaping (Result<DocumentProcessingPayload, Error>) -> Void) {
         loadTextFromPasteboard { text, title in
             if let text, !text.isEmpty {
-                completion(.success(DocumentProcessingPayload(title: title, text: text, images: [], fileURL: nil)))
+                if let url = self.linkURL(from: text) {
+                    completion(.success(DocumentProcessingPayload(title: title, text: text, images: [], fileURL: nil, linkURL: url)))
+                } else {
+                    completion(.success(DocumentProcessingPayload(title: title, text: text, images: [], fileURL: nil, linkURL: nil)))
+                }
                 return
             }
 
             self.loadPDFFileFromPasteboard { pdfURL in
                 if let pdfURL {
                     let title = pdfURL.lastPathComponent
-                    completion(.success(DocumentProcessingPayload(title: title, text: "", images: [], fileURL: pdfURL)))
+                    completion(.success(DocumentProcessingPayload(title: title, text: "", images: [], fileURL: pdfURL, linkURL: nil)))
                     return
                 }
 
@@ -82,7 +87,11 @@ final class DocumentProcessor {
                     if let image {
                         self.processImages([image], completion: completion)
                     } else if let text = UIPasteboard.general.string, !text.isEmpty {
-                        completion(.success(DocumentProcessingPayload(title: nil, text: text, images: [], fileURL: nil)))
+                        if let url = self.linkURL(from: text) {
+                            completion(.success(DocumentProcessingPayload(title: nil, text: text, images: [], fileURL: nil, linkURL: url)))
+                        } else {
+                            completion(.success(DocumentProcessingPayload(title: nil, text: text, images: [], fileURL: nil, linkURL: nil)))
+                        }
                     } else {
                         completion(.failure(DocumentProcessingError.noClipboardContent))
                     }
@@ -159,6 +168,23 @@ final class DocumentProcessor {
         }
 
         load(from: 0)
+    }
+
+    private func linkURL(from text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+        guard let match = detector?.firstMatch(in: trimmed, options: [], range: range),
+              let url = match.url else {
+            return nil
+        }
+        if match.range.length == range.length {
+            return url
+        }
+        return nil
     }
 
     private func readTextFile(from url: URL) -> (text: String, title: String)? {
