@@ -16,20 +16,10 @@ struct AddClipIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let store = DocumentStore()
-        let useCase = DocumentUseCase(store: store)
-        let result = await withCheckedContinuation { continuation in
-            useCase.handleClipboard { outcome in
-                continuation.resume(returning: outcome)
-            }
-        }
-
-        switch result {
-        case .success:
-            return .result(dialog: "Listo, guardado en documentos.")
-        case .failure:
-            return .result(dialog: "No pude guardar el portapapeles.")
-        }
+        print("[AddClipIntent] perform() start at \(Date())")
+        ShortcutService.markPendingClipboardCapture()
+        print("[AddClipIntent] pending capture requested at \(Date())")
+        return .result(dialog: "Abriendo DocPilot para guardar el clip.")
     }
 }
 
