@@ -17,6 +17,8 @@ import AppKit
 final class LibraryViewModel: ObservableObject {
     @Published var filter: Filter = .all
     @Published private(set) var entries: [DocumentEntry] = []
+    @Published var editingEntry: DocumentEntry?
+    @Published var draftTitle = ""
 
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -50,6 +52,31 @@ final class LibraryViewModel: ObservableObject {
 
     func formattedDate(_ date: Date) -> String {
         dateFormatter.string(from: date)
+    }
+
+    func beginEditingTitle(for entry: DocumentEntry) {
+        editingEntry = entry
+        draftTitle = entry.title ?? ""
+    }
+
+    func cancelEditingTitle() {
+        editingEntry = nil
+        draftTitle = ""
+    }
+
+    func saveEditingTitle() {
+        guard let entry = editingEntry else {
+            return
+        }
+        let trimmed = draftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newTitle = trimmed.isEmpty ? nil : trimmed
+        store.updateEntryTitle(id: entry.id, title: newTitle)
+        editingEntry = nil
+        draftTitle = ""
+    }
+
+    func isEditingTitlePresented() -> Bool {
+        editingEntry != nil
     }
 
     func isEmptyState(_ entries: [DocumentEntry]) -> Bool {

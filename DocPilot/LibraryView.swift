@@ -67,6 +67,9 @@ struct LibraryView: View {
                             }
                             .padding(.vertical, 4)
                         }
+                        .onLongPressGesture {
+                            viewModel.beginEditingTitle(for: entry)
+                        }
                     }
                     .onDelete(perform: store.deleteEntries)
                 }
@@ -78,6 +81,22 @@ struct LibraryView: View {
                 }
                 .refreshable {
                     viewModel.refresh()
+                }
+                .alert("Editar titulo", isPresented: Binding(
+                    get: { viewModel.isEditingTitlePresented() },
+                    set: { isPresented in
+                        if !isPresented {
+                            viewModel.cancelEditingTitle()
+                        }
+                    }
+                )) {
+                    TextField("Titulo", text: $viewModel.draftTitle)
+                    Button("Guardar") {
+                        viewModel.saveEditingTitle()
+                    }
+                    Button("Cancelar", role: .cancel) {
+                        viewModel.cancelEditingTitle()
+                    }
                 }
             }
             .navigationTitle("Documentos")

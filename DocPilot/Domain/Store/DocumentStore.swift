@@ -90,6 +90,24 @@ final class DocumentStore: ObservableObject {
         }
     }
 
+    func updateEntryTitle(id: UUID, title: String?) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        let entry = entries[index]
+        let updated = DocumentEntry(
+            id: entry.id,
+            createdAt: entry.createdAt,
+            title: title,
+            text: entry.text,
+            imageFilenames: entry.imageFilenames,
+            fileFilename: entry.fileFilename,
+            linkURL: entry.linkURL
+        )
+        entries[index] = updated
+        save()
+    }
+
     func load() {
         do {
             let data = try Data(contentsOf: fileURL)
