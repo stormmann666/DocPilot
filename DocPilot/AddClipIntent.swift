@@ -12,7 +12,7 @@ struct AddClipIntent: AppIntent {
     static let title: LocalizedStringResource = "Añade clip"
     static let description = IntentDescription("Guarda el portapapeles en Documentos.")
 
-    static let openAppWhenRun = false
+    static let openAppWhenRun = true
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
