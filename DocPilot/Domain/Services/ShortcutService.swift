@@ -17,46 +17,42 @@ enum ShortcutService {
     private static let lastClipboardChangeCountKey = "lastClipboardChangeCount"
 
     static func markPendingClipboardCapture() {
-        print("[ShortcutService] markPendingClipboardCapture at \(Date())")
+        DebugLogger.log("[ShortcutService] markPendingClipboardCapture")
         let now = Date().timeIntervalSince1970
         let lastRequested = UserDefaults.standard.double(forKey: lastRequestedKey)
         if now - lastRequested < 3 {
-            print("[ShortcutService] markPendingClipboardCapture skipped (cooldown)")
+            DebugLogger.log("[ShortcutService] skipped (cooldown)")
             return
         }
         UserDefaults.standard.set(now, forKey: lastRequestedKey)
         UserDefaults.standard.set(true, forKey: pendingClipboardKey)
-        print("[ShortcutService] pendingClipboardKey set true")
     }
 
     static func consumePendingClipboardCapture() -> Bool {
         let shouldProcess = UserDefaults.standard.bool(forKey: pendingClipboardKey)
         if shouldProcess {
             UserDefaults.standard.set(false, forKey: pendingClipboardKey)
-            print("[ShortcutService] pendingClipboardKey set false")
+            DebugLogger.log("[ShortcutService] pending capture consumed")
         }
         return shouldProcess
     }
 
     static func handlePendingClipboardCapture(store: DocumentStore) {
-        print("[ShortcutService] handlePendingClipboardCapture at \(Date())")
+        DebugLogger.log("[ShortcutService] handlePendingClipboardCapture")
         guard consumePendingClipboardCapture() else {
-            print("[ShortcutService] no pending capture")
             return
         }
-        print("[ShortcutService] pending capture consumed")
         let now = Date().timeIntervalSince1970
         let lastProcessed = UserDefaults.standard.double(forKey: lastProcessedKey)
         if now - lastProcessed < 3 {
-            print("[ShortcutService] skipped (cooldown)")
+            DebugLogger.log("[ShortcutService] skipped (cooldown)")
             return
         }
 #if canImport(UIKit)
         let changeCount = UIPasteboard.general.changeCount
         let lastChangeCount = UserDefaults.standard.integer(forKey: lastClipboardChangeCountKey)
-        print("[ShortcutService] pasteboard changeCount: \(changeCount) last: \(lastChangeCount)")
         if changeCount == lastChangeCount {
-            print("[ShortcutService] skipped (same pasteboard changeCount)")
+            DebugLogger.log("[ShortcutService] skipped (same pasteboard changeCount)")
             return
         }
         UserDefaults.standard.set(changeCount, forKey: lastClipboardChangeCountKey)
@@ -64,7 +60,6 @@ enum ShortcutService {
         UserDefaults.standard.set(now, forKey: lastProcessedKey)
         let useCase = DocumentUseCase(store: store)
         useCase.handleClipboard { _ in
-            print("[ShortcutService] handleClipboard completed")
             return
         }
     }

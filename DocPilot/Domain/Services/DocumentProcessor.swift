@@ -66,12 +66,9 @@ final class DocumentProcessor {
     }
 
     func processClipboard(completion: @escaping (Result<DocumentProcessingPayload, Error>) -> Void) {
-        print("[DocumentProcessor] processClipboard start at \(Date())")
         loadTextFromPasteboard { text, title in
-            print("[DocumentProcessor] loadTextFromPasteboard text=\(text?.count ?? 0) title=\(title ?? "nil")")
             if let text, !text.isEmpty {
                 if let url = self.linkURL(from: text) {
-                    print("[DocumentProcessor] detected link in text")
                     completion(.success(DocumentProcessingPayload(title: title, text: text, images: [], fileURL: nil, linkURL: url)))
                 } else {
                     completion(.success(DocumentProcessingPayload(title: title, text: text, images: [], fileURL: nil, linkURL: nil)))
@@ -81,7 +78,6 @@ final class DocumentProcessor {
 
             self.loadPDFFileFromPasteboard { pdfURL in
                 if let pdfURL {
-                    print("[DocumentProcessor] detected PDF in pasteboard")
                     let title = pdfURL.lastPathComponent
                     completion(.success(DocumentProcessingPayload(title: title, text: "", images: [], fileURL: pdfURL, linkURL: nil)))
                     return
@@ -89,10 +85,8 @@ final class DocumentProcessor {
 
                 self.loadImageFromPasteboard { image in
                     if let image {
-                        print("[DocumentProcessor] detected image in pasteboard")
                         self.processImages([image], completion: completion)
                     } else if let text = UIPasteboard.general.string, !text.isEmpty {
-                        print("[DocumentProcessor] fallback UIPasteboard string")
                         if let url = self.linkURL(from: text) {
                             completion(.success(DocumentProcessingPayload(title: nil, text: text, images: [], fileURL: nil, linkURL: url)))
                         } else {

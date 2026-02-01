@@ -19,14 +19,14 @@ struct DocPilotApp: App {
             RootView()
                 .environmentObject(store)
                 .onChange(of: scenePhase) { phase in
-                    print("[DocPilotApp] scenePhase changed: \(String(describing: phase))")
                     if phase == .active {
-                        print("[DocPilotApp] handling pending clipboard capture")
+                        DebugLogger.log("[DocPilotApp] scenePhase active")
                         ShortcutService.handlePendingClipboardCapture(store: store)
                     }
                 }
                 .onReceive(pendingPoller) { _ in
                     guard scenePhase == .active else { return }
+                    DebugLogger.log("[DocPilotApp] poller tick")
                     ShortcutService.handlePendingClipboardCapture(store: store)
                 }
         }

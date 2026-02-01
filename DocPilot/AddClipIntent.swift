@@ -16,9 +16,9 @@ struct AddClipIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        print("[AddClipIntent] perform() start at \(Date())")
+        DebugLogger.log("[AddClipIntent] perform() start")
         ShortcutService.markPendingClipboardCapture()
-        print("[AddClipIntent] pending capture requested at \(Date())")
+        DebugLogger.log("[AddClipIntent] pending capture requested")
         return .result(dialog: "Abriendo DocPilot para guardar el clip.")
     }
 }

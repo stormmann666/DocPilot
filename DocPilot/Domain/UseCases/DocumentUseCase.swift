@@ -33,7 +33,7 @@ final class DocumentUseCase {
     }
 
     func handleClipboard(completion: @escaping (Result<DocumentUseCaseResult, Error>) -> Void) {
-        print("[DocumentUseCase] handleClipboard at \(Date())")
+        DebugLogger.log("[DocumentUseCase] handleClipboard")
         processor.processClipboard { result in
             self.savePayload(result, completion: completion)
         }
@@ -42,10 +42,10 @@ final class DocumentUseCase {
     private func savePayload(_ result: Result<DocumentProcessingPayload, Error>, completion: @escaping (Result<DocumentUseCaseResult, Error>) -> Void) {
         switch result {
         case .failure(let error):
-            print("[DocumentUseCase] savePayload failure: \(error.localizedDescription)")
+            DebugLogger.log("[DocumentUseCase] savePayload failure: \(error.localizedDescription)")
             completion(.failure(error))
         case .success(let payload):
-            print("[DocumentUseCase] savePayload success (text: \(payload.text?.count ?? 0), images: \(payload.images.count), file: \(payload.fileURL != nil), link: \(payload.linkURL != nil))")
+            DebugLogger.log("[DocumentUseCase] savePayload success link=\(payload.linkURL != nil) file=\(payload.fileURL != nil) images=\(payload.images.count)")
             if let linkURL = payload.linkURL {
                 saveLinkPayload(payload, linkURL: linkURL, completion: completion)
                 return

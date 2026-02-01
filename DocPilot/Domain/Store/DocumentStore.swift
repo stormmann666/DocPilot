@@ -59,7 +59,7 @@ final class DocumentStore: ObservableObject {
     }
 
     func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil, linkURL: String? = nil) {
-        print("[DocumentStore] addEntry title=\(title ?? "nil") text=\(text?.count ?? 0) images=\(imageFilenames.count) file=\(fileFilename != nil) link=\(linkURL != nil)")
+        DebugLogger.log("[DocumentStore] addEntry title=\(title ?? "nil") images=\(imageFilenames.count) file=\(fileFilename != nil) link=\(linkURL != nil)")
         let entry = DocumentEntry(
             id: UUID(),
             createdAt: Date(),
