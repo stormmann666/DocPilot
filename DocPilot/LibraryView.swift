@@ -207,6 +207,10 @@ struct ImagePreview: View {
     let image: PlatformImage
     let viewModel: LibraryViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
 
     var body: some View {
         NavigationStack {
@@ -216,6 +220,37 @@ struct ImagePreview: View {
                     .resizable()
                     .scaledToFit()
                     .padding()
+                    .scaleEffect(scale)
+                    .offset(offset)
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                let delta = value / max(lastScale, 0.01)
+                                scale = min(max(scale * delta, 1), 6)
+                                lastScale = value
+                            }
+                            .onEnded { _ in
+                                lastScale = 1
+                                if scale == 1 {
+                                    offset = .zero
+                                    lastOffset = .zero
+                                }
+                            }
+                    )
+                    .simultaneousGesture(
+                        DragGesture()
+                            .onChanged { value in
+                                guard scale > 1 else { return }
+                                offset = CGSize(
+                                    width: lastOffset.width + value.translation.width,
+                                    height: lastOffset.height + value.translation.height
+                                )
+                            }
+                            .onEnded { _ in
+                                guard scale > 1 else { return }
+                                lastOffset = offset
+                            }
+                    )
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
