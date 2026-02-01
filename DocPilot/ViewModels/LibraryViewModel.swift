@@ -126,4 +126,8 @@ final class LibraryViewModel: ObservableObject {
             .receive(on: RunLoop.main)
             .assign(to: &$entries)
     }
+
+    func refresh() {
+        store.load()
+    }
 }

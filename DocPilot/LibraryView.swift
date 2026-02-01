@@ -76,8 +76,14 @@ struct LibraryView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .refreshable {
+                    viewModel.refresh()
+                }
             }
             .navigationTitle("Documentos")
+            .onAppear {
+                viewModel.refresh()
+            }
             .toolbar {
                 EditButton()
             }
