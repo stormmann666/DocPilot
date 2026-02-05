@@ -201,6 +201,9 @@ extension DocumentStore {
             return entries
         }
         return entries.filter { entry in
+            if let title = entry.title, !title.isEmpty, matches(query: trimmed, in: title) {
+                return true
+            }
             guard let text = entry.text, !text.isEmpty else {
                 return false
             }
