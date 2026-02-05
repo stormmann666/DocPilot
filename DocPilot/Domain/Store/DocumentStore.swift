@@ -193,3 +193,67 @@ final class DocumentStore: ObservableObject {
         try? fileManager.removeItem(at: url)
     }
 }
+
+extension DocumentStore {
+    func searchEntries(in entries: [DocumentEntry], query: String) -> [DocumentEntry] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return entries
+        }
+        return entries.filter { entry in
+            guard let text = entry.text, !text.isEmpty else {
+                return false
+            }
+            return matches(query: trimmed, in: text)
+        }
+    }
+
+    private func matches(query: String, in text: String) -> Bool {
+        let normalizedQuery = normalize(query)
+        let words = extractWords(from: text)
+        for word in words {
+            let similarity = similarityScore(normalizedQuery, normalize(word))
+            if similarity >= 0.7 {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func extractWords(from text: String) -> [String] {
+        text.components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+    }
+
+    private func normalize(_ value: String) -> String {
+        value.lowercased()
+    }
+
+    private func similarityScore(_ a: String, _ b: String) -> Double {
+        let maxLen = max(a.count, b.count)
+        guard maxLen > 0 else { return 1 }
+        let distance = levenshteinDistance(a, b)
+        return 1.0 - (Double(distance) / Double(maxLen))
+    }
+
+    private func levenshteinDistance(_ a: String, _ b: String) -> Int {
+        let aChars = Array(a)
+        let bChars = Array(b)
+        var distances = Array(0...bChars.count)
+
+        for (i, aChar) in aChars.enumerated() {
+            var previous = distances[0]
+            distances[0] = i + 1
+            for (j, bChar) in bChars.enumerated() {
+                let old = distances[j + 1]
+                let cost = aChar == bChar ? 0 : 1
+                distances[j + 1] = min(
+                    distances[j + 1] + 1,
+                    min(distances[j] + 1, previous + cost)
+                )
+                previous = old
+            }
+        }
+        return distances[bChars.count]
+    }
+}

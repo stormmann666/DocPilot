@@ -19,6 +19,7 @@ final class LibraryViewModel: ObservableObject {
     @Published private(set) var entries: [DocumentEntry] = []
     @Published var editingEntry: DocumentEntry?
     @Published var draftTitle = ""
+    @Published var searchQuery = ""
 
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -146,9 +147,11 @@ final class LibraryViewModel: ObservableObject {
     }
 
     private func bind() {
-        Publishers.CombineLatest(store.$entries, $filter)
-            .map { [weak self] entries, filter in
-                self?.filteredEntries(entries, filter: filter) ?? []
+        Publishers.CombineLatest3(store.$entries, $filter, $searchQuery)
+            .map { [weak self] entries, filter, query in
+                guard let self else { return [] }
+                let filtered = self.filteredEntries(entries, filter: filter)
+                return self.store.searchEntries(in: filtered, query: query)
             }
             .receive(on: RunLoop.main)
             .assign(to: &$entries)
@@ -157,4 +160,5 @@ final class LibraryViewModel: ObservableObject {
     func refresh() {
         store.load()
     }
+
 }

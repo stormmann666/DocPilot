@@ -18,6 +18,11 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                TextField("Buscar en OCR", text: $viewModel.searchQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
                 Picker("Filtro", selection: $viewModel.filter) {
                     ForEach(LibraryViewModel.Filter.allCases) { filter in
                         Text(filter.rawValue).tag(filter)
