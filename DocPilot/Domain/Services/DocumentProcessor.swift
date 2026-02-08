@@ -93,6 +93,10 @@ final class DocumentProcessor {
         }
     }
 
+    func processPDFFile(at url: URL, completion: @escaping (String) -> Void) {
+        processPDF(at: url, completion: completion)
+    }
+
     private func loadTextFromPasteboard(completion: @escaping (String?, String?) -> Void) {
         let providers = UIPasteboard.general.itemProviders
         guard !providers.isEmpty else {
@@ -367,6 +371,10 @@ final class DocumentProcessor {
 
     func processClipboardPDF(completion: @escaping (Result<(url: URL, text: String), Error>) -> Void) {
         completion(.failure(DocumentProcessingError.unsupportedPlatform))
+    }
+
+    func processPDFFile(at url: URL, completion: @escaping (String) -> Void) {
+        completion("")
     }
 #endif
 }

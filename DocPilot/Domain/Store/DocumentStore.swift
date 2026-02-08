@@ -202,6 +202,36 @@ final class DocumentStore: ObservableObject {
         save()
     }
 
+    func appendImages(to entryId: UUID, filenames: [String], ocrText: String) {
+        guard let index = entries.firstIndex(where: { $0.id == entryId }) else {
+            return
+        }
+        let entry = entries[index]
+        let updatedImages = entry.imageFilenames + filenames
+        let updatedText: String?
+        if let existing = entry.text, !existing.isEmpty {
+            if ocrText.isEmpty {
+                updatedText = existing
+            } else {
+                updatedText = existing + "\n\n" + ocrText
+            }
+        } else {
+            updatedText = ocrText.isEmpty ? entry.text : ocrText
+        }
+        let updated = DocumentEntry(
+            id: entry.id,
+            createdAt: entry.createdAt,
+            title: entry.title,
+            text: updatedText,
+            imageFilenames: updatedImages,
+            fileFilename: entry.fileFilename,
+            linkURL: entry.linkURL,
+            pdfs: entry.pdfs
+        )
+        entries[index] = updated
+        save()
+    }
+
     func load() {
         do {
             let data = try Data(contentsOf: fileURL)

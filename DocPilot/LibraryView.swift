@@ -6,6 +6,10 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+import UniformTypeIdentifiers
+#endif
 
 struct LibraryView: View {
     @EnvironmentObject private var store: DocumentStore
@@ -134,6 +138,8 @@ struct DocumentDetailView: View {
     @State private var selectedImageItem: ImageItem?
     @State private var isShowingDeleteAlert = false
     @State private var pdfErrorMessage: String?
+    @State private var isShowingCamera = false
+    @State private var isShowingFilePicker = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -147,6 +153,16 @@ struct DocumentDetailView: View {
                                 pdfErrorMessage = error.localizedDescription
                             }
                         }
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Añadir PDF desde Archivos") {
+                        isShowingFilePicker = true
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Añadir foto con OCR") {
+                        isShowingCamera = true
                     }
                     .buttonStyle(.bordered)
 #endif
@@ -238,6 +254,38 @@ struct DocumentDetailView: View {
         .sheet(item: $selectedImageItem) { item in
             ImagePreview(image: item.image, viewModel: viewModel)
         }
+#if canImport(UIKit)
+        .sheet(isPresented: $isShowingCamera) {
+            CameraPicker { result in
+                switch result {
+                case .success(let image):
+                    if let entry = store.entries.first(where: { $0.id == entryId }) {
+                        viewModel.addImagesToEntry(entry, images: [image]) { outcome in
+                            if case .failure(let error) = outcome {
+                                pdfErrorMessage = error.localizedDescription
+                            }
+                        }
+                    }
+                case .failure:
+                    pdfErrorMessage = "No se pudo obtener la imagen."
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingFilePicker) {
+            PDFDocumentPicker { url in
+                guard let url else {
+                    return
+                }
+                if let entry = store.entries.first(where: { $0.id == entryId }) {
+                    viewModel.addPDFToEntryFromFile(entry, fileURL: url) { result in
+                        if case .failure(let error) = result {
+                            pdfErrorMessage = error.localizedDescription
+                        }
+                    }
+                }
+            }
+        }
+#endif
     }
 
     @ViewBuilder
@@ -341,6 +389,40 @@ struct ImagePreview: View {
         }
     }
 }
+
+#if canImport(UIKit)
+struct PDFDocumentPicker: UIViewControllerRepresentable {
+    var completion: (URL?) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let controller = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf], asCopy: true)
+        controller.delegate = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(completion: completion)
+    }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        private let completion: (URL?) -> Void
+
+        init(completion: @escaping (URL?) -> Void) {
+            self.completion = completion
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            completion(urls.first)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            completion(nil)
+        }
+    }
+}
+#endif
 
 #Preview {
     LibraryView(store: DocumentStore())

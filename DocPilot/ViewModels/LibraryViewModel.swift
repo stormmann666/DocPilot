@@ -172,6 +172,16 @@ final class LibraryViewModel: ObservableObject {
         let useCase = DocumentUseCase(store: store)
         useCase.addPDFToEntryFromClipboard(entryId: entry.id, completion: completion)
     }
+
+    func addPDFToEntryFromFile(_ entry: DocumentEntry, fileURL: URL, completion: @escaping (Result<Void, Error>) -> Void) {
+        let useCase = DocumentUseCase(store: store)
+        useCase.addPDFToEntryFromFile(entryId: entry.id, fileURL: fileURL, completion: completion)
+    }
+
+    func addImagesToEntry(_ entry: DocumentEntry, images: [UIImage], completion: @escaping (Result<Void, Error>) -> Void) {
+        let useCase = DocumentUseCase(store: store)
+        useCase.addImagesToEntry(entry.id, images: images, completion: completion)
+    }
 #endif
 
 }

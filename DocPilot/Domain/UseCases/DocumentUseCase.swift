@@ -59,6 +59,38 @@ final class DocumentUseCase {
         }
     }
 
+    func addPDFToEntryFromFile(entryId: UUID, fileURL: URL, completion: @escaping (Result<Void, Error>) -> Void) {
+        processor.processPDFFile(at: fileURL) { text in
+            let saved = self.store.saveFile(from: fileURL, prefix: "pdf")
+            guard let filename = saved else {
+                completion(.failure(DocumentProcessingError.noClipboardContent))
+                return
+            }
+            _ = self.performStoreUpdate {
+                self.store.appendPDF(to: entryId, filename: filename, ocrText: text)
+                return .success(DocumentUseCaseResult(title: nil, text: text))
+            }
+            completion(.success(()))
+        }
+    }
+
+    func addImagesToEntry(_ entryId: UUID, images: [UIImage], completion: @escaping (Result<Void, Error>) -> Void) {
+        processor.processImages(images) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let payload):
+                let filenames = self.store.saveImages(payload.images, prefix: "scan")
+                let text = payload.text ?? ""
+                _ = self.performStoreUpdate {
+                    self.store.appendImages(to: entryId, filenames: filenames, ocrText: text)
+                    return .success(DocumentUseCaseResult(title: nil, text: text))
+                }
+                completion(.success(()))
+            }
+        }
+    }
+
     private func savePayload(_ result: Result<DocumentProcessingPayload, Error>, completion: @escaping (Result<DocumentUseCaseResult, Error>) -> Void) {
         switch result {
         case .failure(let error):
