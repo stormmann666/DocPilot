@@ -126,10 +126,12 @@ final class DocumentStore: ObservableObject {
         load()
     }
 
-    func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil, linkURL: String? = nil, pdfs: [DocumentPDF] = []) {
+    @discardableResult
+    func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil, linkURL: String? = nil, pdfs: [DocumentPDF] = []) -> UUID {
         DebugLogger.log("[DocumentStore] addEntry title=\(title ?? "nil") images=\(imageFilenames.count) file=\(fileFilename != nil) link=\(linkURL != nil)")
+        let entryId = UUID()
         let entry = DocumentEntry(
-            id: UUID(),
+            id: entryId,
             createdAt: Date(),
             title: title,
             text: text,
@@ -140,6 +142,7 @@ final class DocumentStore: ObservableObject {
         )
         entries.insert(entry, at: 0)
         save()
+        return entryId
     }
 
     func deleteEntry(_ entry: DocumentEntry) {

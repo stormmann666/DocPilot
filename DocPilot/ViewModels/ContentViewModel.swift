@@ -18,6 +18,7 @@ final class ContentViewModel: ObservableObject {
     @Published var isProcessing = false
     @Published var errorMessage: String?
     @Published var isResultPresented = false
+    @Published var currentEntryId: UUID?
 
     private let useCase: DocumentUseCase
 
@@ -32,6 +33,7 @@ final class ContentViewModel: ObservableObject {
         recognizedText = ""
         recognizedTitle = nil
         isResultPresented = false
+        currentEntryId = nil
 
         useCase.handleCameraImage(image) { [weak self] result in
             DispatchQueue.main.async {
@@ -45,6 +47,7 @@ final class ContentViewModel: ObservableObject {
         errorMessage = nil
         recognizedTitle = nil
         isResultPresented = false
+        currentEntryId = nil
 
         useCase.handleClipboard { [weak self] result in
             DispatchQueue.main.async {
@@ -61,8 +64,42 @@ final class ContentViewModel: ObservableObject {
             recognizedText = result.text
             recognizedTitle = result.title
             isResultPresented = true
+            currentEntryId = result.entryId
         case .failure(let error):
             errorMessage = error.localizedDescription
         }
+    }
+
+    func appendCameraImage(_ image: UIImage) {
+        guard let entryId = currentEntryId else {
+            processCameraImage(image)
+            return
+        }
+        isProcessing = true
+        errorMessage = nil
+
+        useCase.addImagesToEntry(entryId, images: [image]) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isProcessing = false
+                switch result {
+                case .success(let text):
+                    if !text.isEmpty {
+                        if !(self?.recognizedText.isEmpty ?? true) {
+                            self?.recognizedText.append("\n\n")
+                        }
+                        self?.recognizedText.append(text)
+                    }
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    func clearResult() {
+        recognizedText = ""
+        recognizedTitle = nil
+        isResultPresented = false
+        currentEntryId = nil
     }
 }

@@ -14,6 +14,7 @@ import LinkPresentation
 struct DocumentUseCaseResult {
     let title: String?
     let text: String
+    let entryId: UUID?
 }
 
 final class DocumentUseCase {
@@ -52,7 +53,7 @@ final class DocumentUseCase {
                 }
                 _ = self.performStoreUpdate {
                     self.store.appendPDF(to: entryId, filename: filename, ocrText: payload.text)
-                    return .success(DocumentUseCaseResult(title: nil, text: payload.text))
+                    return .success(DocumentUseCaseResult(title: nil, text: payload.text, entryId: entryId))
                 }
                 completion(.success(()))
             }
@@ -68,13 +69,13 @@ final class DocumentUseCase {
             }
             _ = self.performStoreUpdate {
                 self.store.appendPDF(to: entryId, filename: filename, ocrText: text)
-                return .success(DocumentUseCaseResult(title: nil, text: text))
+                return .success(DocumentUseCaseResult(title: nil, text: text, entryId: entryId))
             }
             completion(.success(()))
         }
     }
 
-    func addImagesToEntry(_ entryId: UUID, images: [UIImage], completion: @escaping (Result<Void, Error>) -> Void) {
+    func addImagesToEntry(_ entryId: UUID, images: [UIImage], completion: @escaping (Result<String, Error>) -> Void) {
         processor.processImages(images) { result in
             switch result {
             case .failure(let error):
@@ -84,9 +85,9 @@ final class DocumentUseCase {
                 let text = payload.text ?? ""
                 _ = self.performStoreUpdate {
                     self.store.appendImages(to: entryId, filenames: filenames, ocrText: text)
-                    return .success(DocumentUseCaseResult(title: nil, text: text))
+                    return .success(DocumentUseCaseResult(title: nil, text: text, entryId: entryId))
                 }
-                completion(.success(()))
+                completion(.success(text))
             }
         }
     }
@@ -108,8 +109,8 @@ final class DocumentUseCase {
                         let title = payload.title ?? fileURL.lastPathComponent
                         let pdfText = payload.text ?? ""
                         let pdf = DocumentPDF(filename: saved, ocrText: pdfText)
-                        store.addEntry(title: title, text: nil, imageFilenames: [], fileFilename: nil, linkURL: nil, pdfs: [pdf])
-                        return .success(DocumentUseCaseResult(title: title, text: pdfText))
+                        let entryId = store.addEntry(title: title, text: nil, imageFilenames: [], fileFilename: nil, linkURL: nil, pdfs: [pdf])
+                        return .success(DocumentUseCaseResult(title: title, text: pdfText, entryId: entryId))
                     }
                     return .failure(DocumentProcessingError.noClipboardContent)
                 }
@@ -121,8 +122,8 @@ final class DocumentUseCase {
                 let result = performStoreUpdate {
                     let filenames = store.saveImages(payload.images, prefix: "scan")
                     let text = payload.text ?? ""
-                    store.addEntry(title: payload.title, text: text, imageFilenames: filenames, fileFilename: nil, linkURL: nil)
-                    return .success(DocumentUseCaseResult(title: payload.title, text: text))
+                    let entryId = store.addEntry(title: payload.title, text: text, imageFilenames: filenames, fileFilename: nil, linkURL: nil)
+                    return .success(DocumentUseCaseResult(title: payload.title, text: text, entryId: entryId))
                 }
                 completion(result)
                 return
@@ -130,8 +131,8 @@ final class DocumentUseCase {
 
             let result = performStoreUpdate {
                 let text = payload.text ?? ""
-                store.addEntry(title: payload.title, text: text, imageFilenames: [], fileFilename: nil, linkURL: nil)
-                return .success(DocumentUseCaseResult(title: payload.title, text: text))
+                let entryId = store.addEntry(title: payload.title, text: text, imageFilenames: [], fileFilename: nil, linkURL: nil)
+                return .success(DocumentUseCaseResult(title: payload.title, text: text, entryId: entryId))
             }
             completion(result)
         }
@@ -154,8 +155,8 @@ final class DocumentUseCase {
 
             guard let imageProvider = metadata?.imageProvider else {
                 let result = self.performStoreUpdate {
-                    self.store.addEntry(title: title, text: text, imageFilenames: [], fileFilename: nil, linkURL: linkURL.absoluteString)
-                    return .success(DocumentUseCaseResult(title: title, text: text))
+                    let entryId = self.store.addEntry(title: title, text: text, imageFilenames: [], fileFilename: nil, linkURL: linkURL.absoluteString)
+                    return .success(DocumentUseCaseResult(title: title, text: text, entryId: entryId))
                 }
                 completion(result)
                 return
@@ -165,8 +166,8 @@ final class DocumentUseCase {
                 let image = object as? UIImage
                 let result = self.performStoreUpdate {
                     let filenames = image.map { self.store.saveImages([$0], prefix: "link") } ?? []
-                    self.store.addEntry(title: title, text: text, imageFilenames: filenames, fileFilename: nil, linkURL: linkURL.absoluteString)
-                    return .success(DocumentUseCaseResult(title: title, text: text))
+                    let entryId = self.store.addEntry(title: title, text: text, imageFilenames: filenames, fileFilename: nil, linkURL: linkURL.absoluteString)
+                    return .success(DocumentUseCaseResult(title: title, text: text, entryId: entryId))
                 }
                 completion(result)
             }

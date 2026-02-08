@@ -13,6 +13,7 @@ import UIKit
 struct ContentView: View {
     @StateObject private var viewModel: ContentViewModel
     @State private var isShowingCamera = false
+    @State private var isAppendingCamera = false
 
     init(store: DocumentStore) {
         _viewModel = StateObject(wrappedValue: ContentViewModel(store: store))
@@ -29,6 +30,7 @@ struct ContentView: View {
                 VStack(spacing: 16) {
 #if canImport(UIKit)
                     Button("Capturar foto y OCR") {
+                        isAppendingCamera = false
                         isShowingCamera = true
                     }
                     .buttonStyle(.borderedProminent)
@@ -74,7 +76,11 @@ struct ContentView: View {
             CameraPicker { result in
                 switch result {
                 case .success(let image):
-                    viewModel.processCameraImage(image)
+                    if isAppendingCamera {
+                        viewModel.appendCameraImage(image)
+                    } else {
+                        viewModel.processCameraImage(image)
+                    }
                 case .failure:
                     viewModel.errorMessage = "No se pudo obtener la imagen."
                 }
@@ -83,6 +89,20 @@ struct ContentView: View {
 #endif
         .sheet(isPresented: $viewModel.isResultPresented) {
             VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    if viewModel.currentEntryId != nil {
+                        Button {
+                            isAppendingCamera = true
+                            isShowingCamera = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    Spacer()
+                }
+
                 if let title = viewModel.recognizedTitle {
                     Text(title)
                         .font(.headline)
@@ -94,7 +114,7 @@ struct ContentView: View {
                     .border(.gray.opacity(0.4))
 
                 Button("Aceptar") {
-                    viewModel.isResultPresented = false
+                    viewModel.clearResult()
                 }
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity, alignment: .center)
