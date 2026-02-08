@@ -39,6 +39,26 @@ final class DocumentUseCase {
         }
     }
 
+    func addPDFToEntryFromClipboard(entryId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        processor.processClipboardPDF { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let payload):
+                let saved = self.store.saveFile(from: payload.url, prefix: "pdf")
+                guard let filename = saved else {
+                    completion(.failure(DocumentProcessingError.noClipboardContent))
+                    return
+                }
+                _ = self.performStoreUpdate {
+                    self.store.appendPDF(to: entryId, filename: filename, ocrText: payload.text)
+                    return .success(DocumentUseCaseResult(title: nil, text: payload.text))
+                }
+                completion(.success(()))
+            }
+        }
+    }
+
     private func savePayload(_ result: Result<DocumentProcessingPayload, Error>, completion: @escaping (Result<DocumentUseCaseResult, Error>) -> Void) {
         switch result {
         case .failure(let error):
@@ -54,8 +74,10 @@ final class DocumentUseCase {
                 let result = performStoreUpdate {
                     if let saved = store.saveFile(from: fileURL, prefix: "pdf") {
                         let title = payload.title ?? fileURL.lastPathComponent
-                        store.addEntry(title: title, text: payload.text ?? "", imageFilenames: [], fileFilename: saved, linkURL: nil)
-                        return .success(DocumentUseCaseResult(title: title, text: payload.text ?? ""))
+                        let pdfText = payload.text ?? ""
+                        let pdf = DocumentPDF(filename: saved, ocrText: pdfText)
+                        store.addEntry(title: title, text: nil, imageFilenames: [], fileFilename: nil, linkURL: nil, pdfs: [pdf])
+                        return .success(DocumentUseCaseResult(title: title, text: pdfText))
                     }
                     return .failure(DocumentProcessingError.noClipboardContent)
                 }

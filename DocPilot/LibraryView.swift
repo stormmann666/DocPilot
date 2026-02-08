@@ -34,9 +34,9 @@ struct LibraryView: View {
 
                 List {
                     ForEach(viewModel.entries) { entry in
-                        NavigationLink {
-                            DocumentDetailView(entry: entry, viewModel: viewModel)
-                        } label: {
+                    NavigationLink {
+                        DocumentDetailView(entryId: entry.id, viewModel: viewModel)
+                    } label: {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text(entry.title ?? viewModel.formattedDate(entry.createdAt))
@@ -128,46 +128,83 @@ struct LibraryView: View {
 }
 
 struct DocumentDetailView: View {
-    let entry: DocumentEntry
+    let entryId: UUID
     let viewModel: LibraryViewModel
     @EnvironmentObject private var store: DocumentStore
     @State private var selectedImageItem: ImageItem?
     @State private var isShowingDeleteAlert = false
+    @State private var pdfErrorMessage: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if !entry.imageFilenames.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(entry.imageFilenames, id: \.self) { filename in
-                                detailImageView(for: filename)
+            if let entry = store.entries.first(where: { $0.id == entryId }) {
+                VStack(alignment: .leading, spacing: 16) {
+#if canImport(UIKit)
+                    Button("Añadir PDF desde portapapeles") {
+                        viewModel.addPDFToEntryFromClipboard(entry) { result in
+                            if case .failure(let error) = result {
+                                pdfErrorMessage = error.localizedDescription
                             }
                         }
                     }
-                }
+                    .buttonStyle(.bordered)
+#endif
 
-                if let text = entry.text, !text.isEmpty {
-                    Button("Copiar texto") {
-                        copyText(text)
+                    if !entry.imageFilenames.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(entry.imageFilenames, id: \.self) { filename in
+                                    detailImageView(for: filename)
+                                }
+                            }
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
 
-                    Text(text)
-                        .textSelection(.enabled)
-                        .font(.body)
-                }
+                    if let text = entry.text, !text.isEmpty {
+                        Button("Copiar texto") {
+                            copyText(text)
+                        }
+                        .buttonStyle(.borderedProminent)
 
-                if let file = entry.fileFilename, !file.isEmpty {
-                    Text("PDF guardado: \(file)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        Text(text)
+                            .textSelection(.enabled)
+                            .font(.body)
+                    }
+
+                    if !entry.pdfs.isEmpty {
+                        ForEach(entry.pdfs) { pdf in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("PDF: \(pdf.filename)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+
+                                if !pdf.ocrText.isEmpty {
+                                    Button("Copiar OCR PDF") {
+                                        copyText(pdf.ocrText)
+                                    }
+                                    .buttonStyle(.bordered)
+
+                                    Text(pdf.ocrText)
+                                        .textSelection(.enabled)
+                                        .font(.body)
+                                } else {
+                                    Text("Sin OCR")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    } else if let file = entry.fileFilename, !file.isEmpty {
+                        Text("PDF guardado: \(file)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .padding()
             }
-            .padding()
         }
-        .navigationTitle(entry.title ?? viewModel.formattedDate(entry.createdAt))
+        .navigationTitle(store.entries.first(where: { $0.id == entryId }).map { $0.title ?? viewModel.formattedDate($0.createdAt) } ?? "Documento")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             Button(role: .destructive) {
@@ -178,12 +215,25 @@ struct DocumentDetailView: View {
         }
         .alert("Borrar documento", isPresented: $isShowingDeleteAlert) {
             Button("Borrar", role: .destructive) {
-                store.deleteEntry(entry)
+                if let entry = store.entries.first(where: { $0.id == entryId }) {
+                    store.deleteEntry(entry)
+                }
                 dismiss()
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text("Se borrara la imagen y el texto OCR.")
+        }
+        .alert("No se pudo añadir el PDF", isPresented: Binding(get: {
+            pdfErrorMessage != nil
+        }, set: { isPresented in
+            if !isPresented {
+                pdfErrorMessage = nil
+            }
+        })) {
+            Button("Aceptar", role: .cancel) {}
+        } message: {
+            Text(pdfErrorMessage ?? "")
         }
         .sheet(item: $selectedImageItem) { item in
             ImagePreview(image: item.image, viewModel: viewModel)

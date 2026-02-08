@@ -93,7 +93,13 @@ final class LibraryViewModel: ObservableObject {
         case .links:
             return entries.filter { $0.linkURL != nil }
         case .text:
-            return entries.filter { ($0.text?.isEmpty == false) && $0.imageFilenames.isEmpty && $0.fileFilename == nil && $0.linkURL == nil }
+            return entries.filter {
+                ($0.text?.isEmpty == false) &&
+                    $0.imageFilenames.isEmpty &&
+                    $0.fileFilename == nil &&
+                    $0.linkURL == nil &&
+                    $0.pdfs.isEmpty
+            }
         case .today:
             let interval = Calendar.current.dateInterval(of: .day, for: Date())
             return entries.filter { entry in
@@ -160,5 +166,12 @@ final class LibraryViewModel: ObservableObject {
     func refresh() {
         store.load()
     }
+
+#if canImport(UIKit)
+    func addPDFToEntryFromClipboard(_ entry: DocumentEntry, completion: @escaping (Result<Void, Error>) -> Void) {
+        let useCase = DocumentUseCase(store: store)
+        useCase.addPDFToEntryFromClipboard(entryId: entry.id, completion: completion)
+    }
+#endif
 
 }

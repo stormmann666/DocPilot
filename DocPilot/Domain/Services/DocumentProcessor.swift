@@ -10,6 +10,7 @@ import Vision
 #if canImport(UIKit)
 import UIKit
 import UniformTypeIdentifiers
+import PDFKit
 #endif
 
 struct DocumentProcessingPayload {
@@ -38,29 +39,7 @@ final class DocumentProcessor {
 #if canImport(UIKit)
     func processImages(_ images: [UIImage], completion: @escaping (Result<DocumentProcessingPayload, Error>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            var fullText: [String] = []
-
-            for image in images {
-                guard let cgImage = image.cgImage else { continue }
-                let request = VNRecognizeTextRequest()
-                request.recognitionLevel = .accurate
-                request.usesLanguageCorrection = true
-                request.recognitionLanguages = ["es-ES", "en-US"]
-
-                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-                do {
-                    try handler.perform([request])
-                    let observations = request.results ?? []
-                    let lines = observations.compactMap { $0.topCandidates(1).first?.string }
-                    if !lines.isEmpty {
-                        fullText.append(lines.joined(separator: "\n"))
-                    }
-                } catch {
-                    fullText.append("[Error OCR: \(error.localizedDescription)]")
-                }
-            }
-
-            let combinedText = fullText.joined(separator: "\n\n")
+            let combinedText = self.recognizeText(in: images)
             completion(.success(DocumentProcessingPayload(title: nil, text: combinedText, images: images, fileURL: nil, linkURL: nil)))
         }
     }
@@ -78,9 +57,11 @@ final class DocumentProcessor {
 
             self.loadPDFFileFromPasteboard { pdfURL in
                 if let pdfURL {
-                    let title = pdfURL.lastPathComponent
-                    completion(.success(DocumentProcessingPayload(title: title, text: "", images: [], fileURL: pdfURL, linkURL: nil)))
-                    return
+                    self.processPDF(at: pdfURL) { text in
+                        let title = pdfURL.lastPathComponent
+                        completion(.success(DocumentProcessingPayload(title: title, text: text, images: [], fileURL: pdfURL, linkURL: nil)))
+                        return
+                    }
                 }
 
                 self.loadImageFromPasteboard { image in
@@ -96,6 +77,18 @@ final class DocumentProcessor {
                         completion(.failure(DocumentProcessingError.noClipboardContent))
                     }
                 }
+            }
+        }
+    }
+
+    func processClipboardPDF(completion: @escaping (Result<(url: URL, text: String), Error>) -> Void) {
+        loadPDFFileFromPasteboard { pdfURL in
+            guard let pdfURL else {
+                completion(.failure(DocumentProcessingError.noClipboardContent))
+                return
+            }
+            self.processPDF(at: pdfURL) { text in
+                completion(.success((url: pdfURL, text: text)))
             }
         }
     }
@@ -313,12 +306,66 @@ final class DocumentProcessor {
 
         load(from: 0)
     }
+
+    private func processPDF(at url: URL, completion: @escaping (String) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let document = PDFDocument(url: url) else {
+                completion("")
+                return
+            }
+
+            var images: [UIImage] = []
+            for index in 0..<document.pageCount {
+                guard let page = document.page(at: index) else { continue }
+                let targetSize = CGSize(width: 1200, height: 1600)
+                let image = page.thumbnail(of: targetSize, for: .mediaBox)
+                images.append(image)
+            }
+
+            let ocrText = self.recognizeText(in: images)
+            if ocrText.isEmpty, let embedded = document.string {
+                completion(embedded)
+            } else {
+                completion(ocrText)
+            }
+        }
+    }
+
+    private func recognizeText(in images: [UIImage]) -> String {
+        var fullText: [String] = []
+
+        for image in images {
+            guard let cgImage = image.cgImage else { continue }
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            request.recognitionLanguages = ["es-ES", "en-US"]
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+                let observations = request.results ?? []
+                let lines = observations.compactMap { $0.topCandidates(1).first?.string }
+                if !lines.isEmpty {
+                    fullText.append(lines.joined(separator: "\n"))
+                }
+            } catch {
+                fullText.append("[Error OCR: \(error.localizedDescription)]")
+            }
+        }
+
+        return fullText.joined(separator: "\n\n")
+    }
 #else
     func processImages(_ images: [Any], completion: @escaping (Result<DocumentProcessingPayload, Error>) -> Void) {
         completion(.failure(DocumentProcessingError.unsupportedPlatform))
     }
 
     func processClipboard(completion: @escaping (Result<DocumentProcessingPayload, Error>) -> Void) {
+        completion(.failure(DocumentProcessingError.unsupportedPlatform))
+    }
+
+    func processClipboardPDF(completion: @escaping (Result<(url: URL, text: String), Error>) -> Void) {
         completion(.failure(DocumentProcessingError.unsupportedPlatform))
     }
 #endif

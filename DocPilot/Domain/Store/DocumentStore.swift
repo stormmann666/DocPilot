@@ -19,6 +19,74 @@ struct DocumentEntry: Identifiable, Codable {
     let imageFilenames: [String]
     let fileFilename: String?
     let linkURL: String?
+    let pdfs: [DocumentPDF]
+
+    init(
+        id: UUID,
+        createdAt: Date,
+        title: String?,
+        text: String?,
+        imageFilenames: [String],
+        fileFilename: String?,
+        linkURL: String?,
+        pdfs: [DocumentPDF] = []
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.title = title
+        self.text = text
+        self.imageFilenames = imageFilenames
+        self.fileFilename = fileFilename
+        self.linkURL = linkURL
+        self.pdfs = pdfs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case createdAt
+        case title
+        case text
+        case imageFilenames
+        case fileFilename
+        case linkURL
+        case pdfs
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        imageFilenames = try container.decodeIfPresent([String].self, forKey: .imageFilenames) ?? []
+        fileFilename = try container.decodeIfPresent(String.self, forKey: .fileFilename)
+        linkURL = try container.decodeIfPresent(String.self, forKey: .linkURL)
+        pdfs = try container.decodeIfPresent([DocumentPDF].self, forKey: .pdfs) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(text, forKey: .text)
+        try container.encode(imageFilenames, forKey: .imageFilenames)
+        try container.encodeIfPresent(fileFilename, forKey: .fileFilename)
+        try container.encodeIfPresent(linkURL, forKey: .linkURL)
+        try container.encode(pdfs, forKey: .pdfs)
+    }
+}
+
+struct DocumentPDF: Identifiable, Codable {
+    let id: UUID
+    let filename: String
+    let ocrText: String
+
+    init(filename: String, ocrText: String) {
+        self.id = UUID()
+        self.filename = filename
+        self.ocrText = ocrText
+    }
 }
 
 extension DocumentEntry {
@@ -26,7 +94,7 @@ extension DocumentEntry {
         if linkURL != nil {
             return "Link"
         }
-        if fileFilename != nil {
+        if fileFilename != nil || !pdfs.isEmpty {
             return "PDF"
         }
         if let text, !text.isEmpty, !imageFilenames.isEmpty {
@@ -58,7 +126,7 @@ final class DocumentStore: ObservableObject {
         load()
     }
 
-    func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil, linkURL: String? = nil) {
+    func addEntry(title: String? = nil, text: String?, imageFilenames: [String], fileFilename: String? = nil, linkURL: String? = nil, pdfs: [DocumentPDF] = []) {
         DebugLogger.log("[DocumentStore] addEntry title=\(title ?? "nil") images=\(imageFilenames.count) file=\(fileFilename != nil) link=\(linkURL != nil)")
         let entry = DocumentEntry(
             id: UUID(),
@@ -67,7 +135,8 @@ final class DocumentStore: ObservableObject {
             text: text,
             imageFilenames: imageFilenames,
             fileFilename: fileFilename,
-            linkURL: linkURL
+            linkURL: linkURL,
+            pdfs: pdfs
         )
         entries.insert(entry, at: 0)
         save()
@@ -79,6 +148,9 @@ final class DocumentStore: ObservableObject {
         }
         if let fileFilename = entry.fileFilename {
             deleteFile(named: fileFilename)
+        }
+        for pdf in entry.pdfs {
+            deleteFile(named: pdf.filename)
         }
         entries.removeAll { $0.id == entry.id }
         save()
@@ -103,7 +175,28 @@ final class DocumentStore: ObservableObject {
             text: entry.text,
             imageFilenames: entry.imageFilenames,
             fileFilename: entry.fileFilename,
-            linkURL: entry.linkURL
+            linkURL: entry.linkURL,
+            pdfs: entry.pdfs
+        )
+        entries[index] = updated
+        save()
+    }
+
+    func appendPDF(to entryId: UUID, filename: String, ocrText: String) {
+        guard let index = entries.firstIndex(where: { $0.id == entryId }) else {
+            return
+        }
+        let entry = entries[index]
+        let updatedPDFs = entry.pdfs + [DocumentPDF(filename: filename, ocrText: ocrText)]
+        let updated = DocumentEntry(
+            id: entry.id,
+            createdAt: entry.createdAt,
+            title: entry.title,
+            text: entry.text,
+            imageFilenames: entry.imageFilenames,
+            fileFilename: entry.fileFilename,
+            linkURL: entry.linkURL,
+            pdfs: updatedPDFs
         )
         entries[index] = updated
         save()
@@ -202,6 +295,9 @@ extension DocumentStore {
         }
         return entries.filter { entry in
             if let title = entry.title, !title.isEmpty, matches(query: trimmed, in: title) {
+                return true
+            }
+            if entry.pdfs.contains(where: { matches(query: trimmed, in: $0.ocrText) }) {
                 return true
             }
             guard let text = entry.text, !text.isEmpty else {
