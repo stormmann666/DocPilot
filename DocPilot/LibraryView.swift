@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @EnvironmentObject private var store: DocumentStore
     @StateObject private var viewModel: LibraryViewModel
+    @State private var selectedEntryId: UUID?
 
     init(store: DocumentStore) {
         _viewModel = StateObject(wrappedValue: LibraryViewModel(store: store))
@@ -38,9 +39,9 @@ struct LibraryView: View {
 
                 List {
                     ForEach(viewModel.entries) { entry in
-                    NavigationLink {
-                        DocumentDetailView(entryId: entry.id, viewModel: viewModel)
-                    } label: {
+                        NavigationLink(tag: entry.id, selection: $selectedEntryId) {
+                            DocumentDetailView(entryId: entry.id, viewModel: viewModel)
+                        } label: {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text(entry.title ?? viewModel.formattedDate(entry.createdAt))
@@ -75,7 +76,14 @@ struct LibraryView: View {
                                 }
                             }
                             .padding(.vertical, 4)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .highPriorityGesture(
+                            TapGesture().onEnded {
+                                selectedEntryId = entry.id
+                            }
+                        )
                         .onLongPressGesture {
                             viewModel.beginEditingTitle(for: entry)
                         }
