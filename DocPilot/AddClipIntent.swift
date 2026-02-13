@@ -35,5 +35,14 @@ struct DocPilotShortcuts: AppShortcutsProvider {
             shortTitle: "Añade clip",
             systemImageName: "doc.on.clipboard"
         )
+        AppShortcut(
+            intent: AddTextIntent(),
+            phrases: [
+                "Añade texto en \(.applicationName)",
+                "Añade texto con \(.applicationName)"
+            ],
+            shortTitle: "Añade texto",
+            systemImageName: "text.append"
+        )
     }
 }
