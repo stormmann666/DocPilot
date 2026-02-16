@@ -40,7 +40,7 @@ struct LibraryView: View {
                 List {
                     ForEach(viewModel.entries) { entry in
                         NavigationLink(tag: entry.id, selection: $selectedEntryId) {
-                            DocumentDetailView(entryId: entry.id, viewModel: viewModel)
+                            DocumentDetailView(entryId: entry.id, viewModel: viewModel, store: store)
                         } label: {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
@@ -142,35 +142,34 @@ struct LibraryView: View {
 struct DocumentDetailView: View {
     let entryId: UUID
     let viewModel: LibraryViewModel
-    @EnvironmentObject private var store: DocumentStore
+    @StateObject private var detailViewModel: DocumentDetailViewModel
     @State private var selectedImageItem: ImageItem?
     @State private var isShowingDeleteAlert = false
-    @State private var pdfErrorMessage: String?
-    @State private var isShowingCamera = false
-    @State private var isShowingFilePicker = false
     @Environment(\.dismiss) private var dismiss
+
+    init(entryId: UUID, viewModel: LibraryViewModel, store: DocumentStore) {
+        self.entryId = entryId
+        self.viewModel = viewModel
+        _detailViewModel = StateObject(wrappedValue: DocumentDetailViewModel(entryId: entryId, store: store))
+    }
 
     var body: some View {
         ScrollView {
-            if let entry = store.entries.first(where: { $0.id == entryId }) {
+            if let entry = detailViewModel.entry {
                 VStack(alignment: .leading, spacing: 16) {
 #if canImport(UIKit)
                     Button("Añadir PDF desde portapapeles") {
-                        viewModel.addPDFToEntryFromClipboard(entry) { result in
-                            if case .failure(let error) = result {
-                                pdfErrorMessage = error.localizedDescription
-                            }
-                        }
+                        detailViewModel.startAddPDFfromClipboard()
                     }
                     .buttonStyle(.bordered)
 
                     Button("Añadir PDF desde Archivos") {
-                        isShowingFilePicker = true
+                        detailViewModel.isShowingFilePicker = true
                     }
                     .buttonStyle(.bordered)
 
                     Button("Añadir foto con OCR") {
-                        isShowingCamera = true
+                        detailViewModel.isShowingCamera = true
                     }
                     .buttonStyle(.bordered)
 #endif
@@ -236,7 +235,7 @@ struct DocumentDetailView: View {
                 .padding()
             }
         }
-        .navigationTitle(store.entries.first(where: { $0.id == entryId }).map { $0.title ?? viewModel.formattedDate($0.createdAt) } ?? "Documento")
+        .navigationTitle(detailViewModel.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             Button(role: .destructive) {
@@ -247,9 +246,7 @@ struct DocumentDetailView: View {
         }
         .alert("Borrar documento", isPresented: $isShowingDeleteAlert) {
             Button("Borrar", role: .destructive) {
-                if let entry = store.entries.first(where: { $0.id == entryId }) {
-                    store.deleteEntry(entry)
-                }
+                detailViewModel.deleteEntry()
                 dismiss()
             }
             Button("Cancelar", role: .cancel) {}
@@ -257,48 +254,36 @@ struct DocumentDetailView: View {
             Text("Se borrara la imagen y el texto OCR.")
         }
         .alert("No se pudo añadir el PDF", isPresented: Binding(get: {
-            pdfErrorMessage != nil
+            detailViewModel.errorMessage != nil
         }, set: { isPresented in
             if !isPresented {
-                pdfErrorMessage = nil
+                detailViewModel.errorMessage = nil
             }
         })) {
             Button("Aceptar", role: .cancel) {}
         } message: {
-            Text(pdfErrorMessage ?? "")
+            Text(detailViewModel.errorMessage ?? "")
         }
         .sheet(item: $selectedImageItem) { item in
             ImagePreview(image: item.image, viewModel: viewModel)
         }
 #if canImport(UIKit)
-        .sheet(isPresented: $isShowingCamera) {
+        .sheet(isPresented: $detailViewModel.isShowingCamera) {
             CameraPicker { result in
                 switch result {
                 case .success(let image):
-                    if let entry = store.entries.first(where: { $0.id == entryId }) {
-                        viewModel.addImagesToEntry(entry, images: [image]) { outcome in
-                            if case .failure(let error) = outcome {
-                                pdfErrorMessage = error.localizedDescription
-                            }
-                        }
-                    }
+                    detailViewModel.startAddImages([image])
                 case .failure:
-                    pdfErrorMessage = "No se pudo obtener la imagen."
+                    detailViewModel.errorMessage = "No se pudo obtener la imagen."
                 }
             }
         }
-        .sheet(isPresented: $isShowingFilePicker) {
+        .sheet(isPresented: $detailViewModel.isShowingFilePicker) {
             PDFDocumentPicker { url in
                 guard let url else {
                     return
                 }
-                if let entry = store.entries.first(where: { $0.id == entryId }) {
-                    viewModel.addPDFToEntryFromFile(entry, fileURL: url) { result in
-                        if case .failure(let error) = result {
-                            pdfErrorMessage = error.localizedDescription
-                        }
-                    }
-                }
+                detailViewModel.startAddPDFfromFile(url: url)
             }
         }
 #endif
