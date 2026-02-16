@@ -185,6 +185,14 @@ struct DocumentDetailView: View {
                         }
                     }
 
+                    if let linkURL = entry.linkURL, let url = URL(string: linkURL) {
+                        HStack {
+                            Image(systemName: linkIcon(for: url))
+                            Link(linkLabel(for: url), destination: url)
+                        }
+                        .font(.subheadline)
+                    }
+
                     if let text = entry.text, !text.isEmpty {
                         Button("Copiar texto") {
                             copyText(text)
@@ -396,6 +404,27 @@ struct ImagePreview: View {
             }
         }
     }
+}
+
+private func linkLabel(for url: URL) -> String {
+    return "[link]"
+}
+
+private func linkIcon(for url: URL) -> String {
+    let host = (url.host ?? "").lowercased()
+    if host.contains("twitter.com") || host.contains("x.com") {
+        return "bird"
+    }
+    if host.contains("facebook.com") {
+        return "f.cursive"
+    }
+    if host.contains("instagram.com") {
+        return "camera"
+    }
+    if host.contains("youtube.com") || host.contains("youtu.be") {
+        return "play.rectangle"
+    }
+    return "safari"
 }
 
 #if canImport(UIKit)
