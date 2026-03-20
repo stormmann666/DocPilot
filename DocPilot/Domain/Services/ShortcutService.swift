@@ -12,6 +12,8 @@ import UIKit
 
 enum ShortcutService {
     private static let pendingClipboardKey = "pendingClipboardCapture"
+    private static let pendingTextKey = "pendingTextCapture"
+    private static let pendingTextTitleKey = "pendingTextCaptureTitle"
     private static let lastProcessedKey = "lastProcessedClipboardCapture"
     private static let lastRequestedKey = "lastRequestedClipboardCapture"
     private static let lastClipboardChangeCountKey = "lastClipboardChangeCount"
@@ -28,6 +30,12 @@ enum ShortcutService {
         UserDefaults.standard.set(true, forKey: pendingClipboardKey)
     }
 
+    static func markPendingTextCapture(_ text: String, title: String?) {
+        DebugLogger.log("[ShortcutService] markPendingTextCapture")
+        UserDefaults.standard.set(text, forKey: pendingTextKey)
+        UserDefaults.standard.set(title, forKey: pendingTextTitleKey)
+    }
+
     static func consumePendingClipboardCapture() -> Bool {
         let shouldProcess = UserDefaults.standard.bool(forKey: pendingClipboardKey)
         if shouldProcess {
@@ -35,6 +43,32 @@ enum ShortcutService {
             DebugLogger.log("[ShortcutService] pending capture consumed")
         }
         return shouldProcess
+    }
+
+    static func consumePendingTextCapture() -> (title: String?, text: String)? {
+        guard let text = UserDefaults.standard.string(forKey: pendingTextKey), !text.isEmpty else {
+            return nil
+        }
+
+        let title = UserDefaults.standard.string(forKey: pendingTextTitleKey)
+        UserDefaults.standard.removeObject(forKey: pendingTextKey)
+        UserDefaults.standard.removeObject(forKey: pendingTextTitleKey)
+        DebugLogger.log("[ShortcutService] pending text consumed")
+        return (title, text)
+    }
+
+    static func handlePendingTextCapture(store: DocumentStore) {
+        DebugLogger.log("[ShortcutService] handlePendingTextCapture")
+        guard let pending = consumePendingTextCapture() else {
+            return
+        }
+        _ = store.addEntry(
+            title: pending.title,
+            text: pending.text,
+            imageFilenames: [],
+            fileFilename: nil,
+            linkURL: nil
+        )
     }
 
     static func handlePendingClipboardCapture(store: DocumentStore) {

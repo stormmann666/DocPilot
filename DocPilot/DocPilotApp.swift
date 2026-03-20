@@ -21,12 +21,14 @@ struct DocPilotApp: App {
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
                         DebugLogger.log("[DocPilotApp] scenePhase active")
+                        ShortcutService.handlePendingTextCapture(store: store)
                         ShortcutService.handlePendingClipboardCapture(store: store)
                     }
                 }
                 .onReceive(pendingPoller) { _ in
                     guard scenePhase == .active else { return }
                     DebugLogger.log("[DocPilotApp] poller tick")
+                    ShortcutService.handlePendingTextCapture(store: store)
                     ShortcutService.handlePendingClipboardCapture(store: store)
                 }
         }

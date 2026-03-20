@@ -19,7 +19,6 @@ struct AddTextIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let store = DocumentStore()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             return .result(dialog: "No hay texto para guardar.")
@@ -27,7 +26,7 @@ struct AddTextIntent: AppIntent {
 
         let words = trimmed.split(whereSeparator: { $0.isWhitespace })
         let title = words.prefix(2).joined(separator: " ")
-        store.addEntry(title: title.isEmpty ? nil : title, text: trimmed, imageFilenames: [], fileFilename: nil, linkURL: nil)
-        return .result(dialog: "Texto guardado en documentos.")
+        ShortcutService.markPendingTextCapture(trimmed, title: title.isEmpty ? nil : title)
+        return .result(dialog: "Abriendo DocPilot para guardar el texto.")
     }
 }
